@@ -1,0 +1,124 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-box {
+  background: white;
+  border-radius: 10px;
+  width: 560px;
+  max-width: 92vw;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 20px 24px;
+  font-family: "Segoe UI", sans-serif;
+  color: #1a1a1a;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  margin: 0;
+  color: teal;
+}
+
+.modal-close {
+  border: none;
+  background: #f0f0f0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.modal-meta {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.modal-meta span {
+  display: block;
+  color: #777;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.modal-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+
+.modal-table th, .modal-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+  font-size: 13px;
+}
+
+.modal-totals {
+  width: 260px;
+  margin-left: auto;
+  font-size: 14px;
+}
+
+.modal-totals div {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+
+.modal-grand {
+  font-weight: 700;
+  font-size: 16px;
+  border-top: 1px solid #ddd;
+  margin-top: 4px;
+  padding-top: 6px !important;
+}
+
+.modal-optic {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #eee;
+}
+
+.modal-optic h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: teal;
+  margin: 0 0 10px;
+}
+
+.modal-optic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 14px;
+}
+
+.modal-optic-grid span {
+  display: block;
+  font-size: 11px;
+  color: #777;
+  text-transform: uppercase;
+}
+
+.modal-optic-grid strong {
+  font-size: 14px;
+  font-weight: 600;
+}

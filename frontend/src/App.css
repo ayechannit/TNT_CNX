@@ -1,0 +1,178 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: teal;
+  color: white;
+  font-family: "Segoe UI", sans-serif;
+  position: relative;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.app-logo {
+  height: 40px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.app-header h1 {
+  font-size: 20px;
+  margin: 0;
+  margin-right: auto;
+  white-space: nowrap;
+}
+
+.app-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.app-user-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.app-logout-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.app-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.app-menu-toggle {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.app-menu-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: white;
+  border-radius: 1px;
+}
+
+.app-menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.app-nav-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.app-nav-categories,
+.app-nav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.app-nav-categories button,
+.app-nav-tabs button {
+  background: transparent;
+  border: none;
+  color: white;
+  padding: 7px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.app-nav-categories button {
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-nav-categories button:hover,
+.app-nav-tabs button:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.app-nav-categories button.active,
+.app-nav-tabs button.active {
+  background: white;
+  color: teal;
+  font-weight: 700;
+}
+
+/* Below this width the two nav rows collapse behind a hamburger toggle
+   and open as a full-width dropdown panel instead of wrapping in place -
+   wrapping alone would still push page content down unpredictably and
+   can still visually bury items on very narrow phones. */
+@media (max-width: 860px) {
+  .app-header {
+    flex-wrap: nowrap;
+  }
+
+  .app-menu-toggle {
+    display: flex;
+  }
+
+  .app-nav-wrap {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: teal;
+    padding: 10px 16px 16px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+    z-index: 30;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+  }
+
+  .app-nav-wrap.open {
+    display: flex;
+  }
+
+  .app-nav-categories,
+  .app-nav-tabs {
+    flex-direction: column;
+  }
+
+  .app-nav-categories button,
+  .app-nav-tabs button {
+    text-align: left;
+    width: 100%;
+    padding: 10px 12px;
+  }
+
+  .app-nav-tabs {
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+    padding-top: 6px;
+    margin-top: 2px;
+  }
+}

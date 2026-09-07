@@ -1,0 +1,19 @@
+.phone-call-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: teal;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.phone-call-link:hover {
+  text-decoration: underline;
+}
+
+.phone-call-link svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
