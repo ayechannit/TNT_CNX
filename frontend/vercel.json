@@ -1,6 +1,9 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "env": {
+    "VITE_API_URL": "https://tnt-cnx.vercel.app/api"
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
