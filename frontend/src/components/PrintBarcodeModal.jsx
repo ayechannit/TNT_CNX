@@ -70,7 +70,7 @@ export default function PrintBarcodeModal({ item, onClose }) {
                 <div className="barcode-preview-svg-wrap">
                   <svg ref={svgRef} className="barcode-preview-svg" />
                 </div>
-                <div className="barcode-preview-name">{item.StockName}</div>
+                <div className="barcode-preview-name">{item.StockCode} - {item.StockName}</div>
                 {showPrice && (
                   <div className="barcode-preview-price">
                     {Number(item.sellprice || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

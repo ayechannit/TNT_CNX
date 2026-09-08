@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html><head></head><body>
+<div id="result">pending</div>
+<script>
+  var BODY_HTML = "\n    <div class=\"voucher-title\">Voucher: SL-000124</div>\n    <div class=\"voucher-meta\">\n      Date: <b>2026-09-08</b> &nbsp; | &nbsp;\n      Customer: <b>Somchai Jaidee</b> &nbsp; | &nbsp;\n      Status: <b>PAID</b>\n    </div>\n    <table>\n      <thead><tr><th>Item</th><th style=\"text-align:right\">Qty</th><th style=\"text-align:right\">Price</th><th style=\"text-align:right\">Amount</th></tr></thead>\n      <tbody><tr>\n        <td>Test Frame Item #1 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">100</td>\n        <td style=\"text-align:right\">100</td>\n      </tr><tr>\n        <td>Test Frame Item #2 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">101</td>\n        <td style=\"text-align:right\">101</td>\n      </tr><tr>\n        <td>Test Frame Item #3 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">102</td>\n        <td style=\"text-align:right\">102</td>\n      </tr><tr>\n        <td>Test Frame Item #4 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">103</td>\n        <td style=\"text-align:right\">103</td>\n      </tr><tr>\n        <td>Test Frame Item #5 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">104</td>\n        <td style=\"text-align:right\">104</td>\n      </tr><tr>\n        <td>Test Frame Item #6 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">105</td>\n        <td style=\"text-align:right\">105</td>\n      </tr><tr>\n        <td>Test Frame Item #7 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">106</td>\n        <td style=\"text-align:right\">106</td>\n      </tr><tr>\n        <td>Test Frame Item #8 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">107</td>\n        <td style=\"text-align:right\">107</td>\n      </tr><tr>\n        <td>Test Frame Item #9 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">108</td>\n        <td style=\"text-align:right\">108</td>\n      </tr><tr>\n        <td>Test Frame Item #10 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">109</td>\n        <td style=\"text-align:right\">109</td>\n      </tr><tr>\n        <td>Test Frame Item #11 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">110</td>\n        <td style=\"text-align:right\">110</td>\n      </tr><tr>\n        <td>Test Frame Item #12 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">111</td>\n        <td style=\"text-align:right\">111</td>\n      </tr><tr>\n        <td>Test Frame Item #13 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">112</td>\n        <td style=\"text-align:right\">112</td>\n      </tr><tr>\n        <td>Test Frame Item #14 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">113</td>\n        <td style=\"text-align:right\">113</td>\n      </tr><tr>\n        <td>Test Frame Item #15 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">114</td>\n        <td style=\"text-align:right\">114</td>\n      </tr><tr>\n        <td>Test Frame Item #16 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">115</td>\n        <td style=\"text-align:right\">115</td>\n      </tr><tr>\n        <td>Test Frame Item #17 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">116</td>\n        <td style=\"text-align:right\">116</td>\n      </tr><tr>\n        <td>Test Frame Item #18 - a somewhat long product name</td>\n        <td style=\"text-align:right\">1</td>\n        <td style=\"text-align:right\">117</td>\n        <td style=\"text-align:right\">117</td>\n      </tr></tbody>\n    </table>\n    \n    <div class=\"totals\">\n      <div><span>Discount</span><span>0</span></div>\n      <div><span>Tax</span><span>0</span></div>\n      <div class=\"grand\"><span>Total</span><span>1,953</span></div>\n      <div><span>Paid</span><span>1,953</span></div>\n      <div><span>Leftover</span><span>0</span></div>\n    </div>\n  \n    <div class=\"optic-box\">\n        <table>\n          <tr><td><b>Sphere OD/OS</b></td><td>-2.00 / -1.75</td>\n              <td><b>Cylinder OD/OS</b></td><td>-0.50 / -0.25</td></tr>\n          <tr><td><b>Axis OD/OS</b></td><td>180 / 170</td>\n              <td><b>Prism OD/OS</b></td><td>- / -</td></tr>\n          <tr><td><b>PD</b></td><td>62</td>\n              <td><b>Delivery</b></td><td>2026-09-10</td></tr>\n        </table>\n      </div>\n  ";
+  var voucherStylesCss = function voucherStylesCss(scale) {
+  const px = (n) => `${(n * scale).toFixed(2)}px`;
+  return `
+    @page { size: A5; margin: 5mm; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; color: #1a1a1a; }
+    .voucher-page { position: relative; width: 138mm; height: 200mm; background-image: url(${bgDataUri}); background-size: 100% 100%; background-repeat: no-repeat; }
+    .voucher-content { position: absolute; top: 19%; left: 4%; right: 4%; bottom: 8%; overflow: hidden; padding: ${px(BASE.contentPad[0])} ${px(BASE.contentPad[1])}; box-sizing: border-box; }
+    .voucher-title { font-size: ${px(BASE.title)}; font-weight: 700; margin: 0 0 ${px(BASE.titleMarginBottom)}; }
+    .voucher-meta { font-size: ${px(BASE.meta)}; color: #444; margin-bottom: ${px(BASE.metaMarginBottom)}; }
+    .voucher-meta b { color: #1a1a1a; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: ${px(BASE.tableMarginBottom)}; }
+    th, td { padding: ${px(BASE.cellPad[0])} ${px(BASE.cellPad[1])}; border-bottom: 1px solid #ddd; font-size: ${px(BASE.cell)}; text-align: left; }
+    th { font-size: ${px(BASE.th)}; text-transform: uppercase; color: #555; }
+    .totals { width: 55%; margin-left: auto; font-size: ${px(BASE.totals)}; }
+    .totals div { display: flex; justify-content: space-between; padding: ${px(BASE.totalsRowPad)} 0; }
+    .totals .grand { font-weight: 700; font-size: ${px(BASE.totalsGrand)}; border-top: 1px solid #333; margin-top: ${px(BASE.totalsGrandMarginTop)}; padding-top: ${px(BASE.totalsGrandPadTop)}; }
+    .optic-box { margin-top: ${px(BASE.opticMarginTop)}; font-size: ${px(BASE.optic)}; }
+    .optic-box table td { font-size: ${px(BASE.optic)}; padding: ${px(BASE.opticPad[0])} ${px(BASE.opticPad[1])}; }
+  `;
+};
+  function pageHtml(css, bodyHtml) {
+    return '<html><head><style>' + css + '</style></head><body><div class="voucher-page"><div class="voucher-content">' + bodyHtml + '</div></div></body></html>';
+  }
+  function measureHeights(css, bodyHtml) {
+    return new Promise(function (resolve) {
+      var iframe = document.createElement("iframe");
+      iframe.style.cssText = "position:fixed; left:-9999px; top:0; width:0; height:0; border:0; visibility:hidden;";
+      var settled = false;
+      function finish(result) { if (settled) return; settled = true; iframe.remove(); resolve(result); }
+      iframe.onload = function () {
+        try {
+          var content = iframe.contentDocument.querySelector(".voucher-content");
+          finish({ available: content.clientHeight, natural: content.scrollHeight });
+        } catch (e) { finish(null); }
+      };
+      setTimeout(function () { finish(null); }, 2000);
+      document.body.appendChild(iframe);
+      iframe.srcdoc = pageHtml(css, bodyHtml);
+    });
+  }
+  async function computeFittedScale(bodyHtml) {
+    var scale = 1;
+    var log = [];
+    for (var pass = 0; pass < 4; pass++) {
+      var heights = await measureHeights(voucherStylesCss(scale), bodyHtml);
+      log.push(JSON.stringify(heights) + " scale=" + scale);
+      if (!heights || heights.available <= 0 || heights.natural <= heights.available) break;
+      scale *= (heights.available / heights.natural) * 0.98;
+    }
+    return { scale: scale, log: log };
+  }
+  computeFittedScale(BODY_HTML).then(function (r) {
+    document.title = "RESULT:" + r.scale;
+    document.getElementById("result").textContent = "RESULT:" + r.scale + "\n" + r.log.join("\n");
+  });
+</script>
+
+</body></html>

@@ -12,6 +12,7 @@ import SupplierPage from "./pages/SupplierPage";
 import CustomerPage from "./pages/CustomerPage";
 import BranchPage from "./pages/BranchPage";
 import ExpenseTypePage from "./pages/ExpenseTypePage";
+import ExpensePage from "./pages/ExpensePage";
 import UserPage from "./pages/UserPage";
 import UserRolePage from "./pages/UserRolePage";
 import LoginPage from "./pages/LoginPage";
@@ -33,6 +34,7 @@ const CATEGORIES = [
       { key: "transfer", label: "Transfer", component: TransferPage },
       { key: "return", label: "Return", component: ReturnPage },
       { key: "saleReturn", label: "Sale Return", component: SaleReturnPage },
+      { key: "expense", label: "Expense", component: ExpensePage },
     ],
   },
   {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import SearchableSelect from "../components/SearchableSelect";
+import { printReportTable } from "../lib/printReport";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -83,6 +84,25 @@ export default function ReportsPage() {
 
   function paramLabel(name) {
     return name.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
+  }
+
+  function paramDisplayValue(p) {
+    const value = params[p.name];
+    if (value === "" || value === null || value === undefined) return "";
+    if (p.type === "branch") return branches.find((b) => String(b.id) === String(value))?.branchname || value;
+    if (p.type === "supplier") return suppliers.find((s) => String(s.SupplierID) === String(value))?.SupplierName || value;
+    if (p.type === "category") return categories.find((c) => String(c.CategoryID) === String(value))?.CategoryName || value;
+    return value;
+  }
+
+  function printReport() {
+    if (!activeReport || !rows) return;
+    printReportTable({
+      title: activeReport.label,
+      filters: activeReport.params.map((p) => ({ label: paramLabel(p.name), value: paramDisplayValue(p) })),
+      columns,
+      rows,
+    });
   }
 
   function exportCsv() {
@@ -195,7 +215,10 @@ export default function ReportsPage() {
                   {loading ? "Running..." : "Run Report"}
                 </button>
                 {rows && rows.length > 0 && (
-                  <button className="btn-secondary reports-export-btn" onClick={exportCsv}>Export CSV</button>
+                  <>
+                    <button className="btn-secondary reports-export-btn" onClick={exportCsv}>Export CSV</button>
+                    <button className="btn-secondary reports-export-btn" onClick={printReport}>Print (A4)</button>
+                  </>
                 )}
               </div>
             )}

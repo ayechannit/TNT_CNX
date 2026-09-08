@@ -73,6 +73,11 @@ export const api = {
   getStockBalance: (stockId, branchId) => request(`/stock-adjustments/balance/${stockId}?branchId=${branchId}`),
   createStockAdjustment: (body) => request("/stock-adjustments", { method: "POST", body: JSON.stringify(body) }),
 
+  listExpenses: (params) => request(`/expenses${toQuery(params)}`),
+  createExpense: (body) => request("/expenses", { method: "POST", body: JSON.stringify(body) }),
+  updateExpense: (id, body) => request(`/expenses/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteExpense: (id) => request(`/expenses/${id}`, { method: "DELETE" }),
+
   listTransfers: (params) => request(`/transfers${toQuery(params)}`),
   getTransfer: (id) => request(`/transfers/${id}`),
   createTransfer: (body) => request("/transfers", { method: "POST", body: JSON.stringify(body) }),

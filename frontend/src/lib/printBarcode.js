@@ -41,11 +41,12 @@ export function renderBarcodeSvgMarkup(value) {
   }
 }
 
-function labelHtml(svgMarkup, stockName, price, showPrice) {
+function labelHtml(svgMarkup, stockCode, stockName, price, showPrice) {
+  const label = stockCode ? `${stockCode} - ${stockName}` : stockName;
   return `
     <div class="barcode-label">
       <div class="barcode-svg-wrap">${svgMarkup}</div>
-      <div class="barcode-name">${escapeHtml(stockName)}</div>
+      <div class="barcode-name">${escapeHtml(label)}</div>
       ${showPrice ? `<div class="barcode-price">${Number(price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : ""}
     </div>
   `;
@@ -55,7 +56,7 @@ export function printBarcodeLabels({ stockName, stockCode, barcodeValue, price, 
   if (!barcodeValue) return;
   const size = LABEL_SIZES[sizeKey] || LABEL_SIZES["50x30"];
   const svgMarkup = renderBarcodeSvgMarkup(barcodeValue);
-  const label = labelHtml(svgMarkup, stockName, price, showPrice);
+  const label = labelHtml(svgMarkup, stockCode, stockName, price, showPrice);
   const count = Math.max(1, Math.min(500, Number(copies) || 1));
   const labels = Array.from({ length: count }, () => label).join("");
 
