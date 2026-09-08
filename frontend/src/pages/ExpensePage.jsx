@@ -8,6 +8,7 @@ import { EditIcon, TrashIcon } from "../components/icons";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
+import "./ExpensePage.css";
 
 const emptyForm = {
   expenseid: null,
@@ -140,7 +141,7 @@ export default function ExpensePage() {
       {error && <div className="error">{error}</div>}
       {message && <div className="role-success">{message}</div>}
 
-      <div className="role-group" style={{ maxWidth: 480 }}>
+      <div className="expense-form">
         <h3>{form.expenseid ? "Edit Expense" : "New Expense"}</h3>
 
         <label>Expense Type</label>
