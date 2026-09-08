@@ -59,11 +59,29 @@ export default function PurchasePage() {
     }).catch((e) => setHistoryError(e.message));
   }
 
+  // loadHistory only fills in the count for whichever tab is currently
+  // active, so the other tab's count stayed blank until the user clicked
+  // into it. Fetch both (pageSize: 1 - only the total is needed) whenever
+  // a filter that affects counts changes.
+  function loadCounts() {
+    ["paid", "unpaid"].forEach((view) => {
+      api.listPurchases({ q: historySearch, page: 1, pageSize: 1, view, fromDate, toDate })
+        .then((r) => setCounts((c) => ({ ...c, [view]: r.total })))
+        .catch(() => {});
+    });
+  }
+
   useEffect(() => {
     const t = setTimeout(loadHistory, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historySearch, page, pageSize, historyView, fromDate, toDate]);
+
+  useEffect(() => {
+    const t = setTimeout(loadCounts, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historySearch, fromDate, toDate]);
 
   useEffect(() => { setPage(1); }, [historyView, fromDate, toDate, historySearch, pageSize]);
 

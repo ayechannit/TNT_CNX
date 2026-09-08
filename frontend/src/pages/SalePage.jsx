@@ -81,11 +81,29 @@ export default function SalePage() {
     }).catch((e) => setHistoryError(e.message));
   }
 
+  // loadHistory only fills in the count for whichever tab is currently
+  // active, so the other two tabs' counts stayed blank until the user
+  // clicked into them. Fetch all three (pageSize: 1 - only the total is
+  // needed) whenever a filter that affects counts changes.
+  function loadCounts() {
+    ["paid", "unpaid", "order"].forEach((view) => {
+      api.listSales({ q: historySearch, page: 1, pageSize: 1, view, fromDate, toDate })
+        .then((r) => setCounts((c) => ({ ...c, [view]: r.total })))
+        .catch(() => {});
+    });
+  }
+
   useEffect(() => {
     const t = setTimeout(loadHistory, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historySearch, page, pageSize, historyView, fromDate, toDate]);
+
+  useEffect(() => {
+    const t = setTimeout(loadCounts, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historySearch, fromDate, toDate]);
 
   useEffect(() => { setPage(1); }, [historyView, fromDate, toDate, historySearch, pageSize]);
 
