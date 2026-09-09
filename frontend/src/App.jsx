@@ -16,6 +16,7 @@ import ExpensePage from "./pages/ExpensePage";
 import UserPage from "./pages/UserPage";
 import UserRolePage from "./pages/UserRolePage";
 import LoginPage from "./pages/LoginPage";
+import GlobalLoadingBar from "./components/GlobalLoadingBar";
 import { getToken, getStoredUser, setAuth as persistAuth, clearAuth } from "./lib/authStorage";
 import tntLogo from "./assets/tnt-logo.png";
 import "./App.css";
@@ -122,7 +123,12 @@ function App() {
   }
 
   if (!currentUser) {
-    return <LoginPage onLogin={handleLogin} />;
+    return (
+      <>
+        <GlobalLoadingBar />
+        <LoginPage onLogin={handleLogin} />
+      </>
+    );
   }
 
   const activeCategory = CATEGORIES.find((c) => c.tabs.some((t) => t.key === activeTab)) || CATEGORIES[0];
@@ -140,6 +146,7 @@ function App() {
 
   return (
     <>
+      <GlobalLoadingBar />
       <header className="app-header">
         <img src={tntLogo} alt="TNT" className="app-logo" />
         <h1>MPOS</h1>

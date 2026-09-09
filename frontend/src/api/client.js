@@ -1,26 +1,53 @@
 import { getToken, clearAuth } from "../lib/authStorage";
+import { beginRequest, endRequest } from "./loadingBus";
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
+// Coalesce identical concurrent calls (e.g. a "Mark Paid" button double-clicked
+// before the first response lands) into a single in-flight request, so a
+// double-click can't create duplicate records. Keyed on method+path+body, so
+// it never blocks unrelated requests - only an exact repeat while pending.
+const inflightRequests = new Map();
+
 async function request(path, options = {}) {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    ...options,
-  });
-  if (res.status === 401 && path !== "/auth/login") {
-    clearAuth();
-    window.dispatchEvent(new Event("mpos-auth-expired"));
+  const method = (options.method || "GET").toUpperCase();
+  const key = `${method} ${path} ${options.body || ""}`;
+  if (inflightRequests.has(key)) {
+    return inflightRequests.get(key);
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const message = (data.errors && data.errors.join(", ")) || data.error || "Request failed";
-    throw new Error(message);
+
+  const promise = (async () => {
+    const token = getToken();
+    beginRequest();
+    try {
+      const res = await fetch(`${BASE_URL}${path}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        ...options,
+      });
+      if (res.status === 401 && path !== "/auth/login") {
+        clearAuth();
+        window.dispatchEvent(new Event("mpos-auth-expired"));
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = (data.errors && data.errors.join(", ")) || data.error || "Request failed";
+        throw new Error(message);
+      }
+      return data;
+    } finally {
+      endRequest();
+    }
+  })();
+
+  inflightRequests.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    inflightRequests.delete(key);
   }
-  return data;
 }
 
 function toQuery(params) {

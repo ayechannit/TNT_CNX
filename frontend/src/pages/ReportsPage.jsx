@@ -51,6 +51,7 @@ export default function ReportsPage() {
       if (p.type === "date" && p.name.toLowerCase().includes("from")) defaults[p.name] = monthStartStr();
       else if (p.type === "date") defaults[p.name] = todayStr();
       else if (p.type === "branch" && branches.length > 0) defaults[p.name] = branches[0].id;
+      else if (p.type === "select" && p.required && p.options?.length > 0) defaults[p.name] = p.options[0];
       else defaults[p.name] = "";
     });
     setParams(defaults);
