@@ -30,6 +30,7 @@ export default function GenericEntityPage({ entityPath, idField, title, columns,
   const [mode, setMode] = useState("view");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -87,6 +88,7 @@ export default function GenericEntityPage({ entityPath, idField, title, columns,
 
   async function save() {
     setError("");
+    setSaving(true);
     try {
       if (mode === "add") {
         await api.createEntity(entityPath, form);
@@ -98,6 +100,8 @@ export default function GenericEntityPage({ entityPath, idField, title, columns,
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -144,7 +148,7 @@ export default function GenericEntityPage({ entityPath, idField, title, columns,
         <div className="button-row">
           <button className="btn-secondary" onClick={startNew} disabled={mode !== "view"}>New</button>
           <button className="btn-secondary" onClick={startEdit} disabled={mode !== "view" || form[idField] === undefined}>Edit</button>
-          <button className="btn-primary" onClick={save} disabled={mode === "view"}>Save</button>
+          <button className="btn-primary" onClick={save} disabled={mode === "view" || saving}>{saving ? "Saving..." : "Save"}</button>
           <button className="btn-secondary" onClick={cancel} disabled={mode === "view"}>Cancel</button>
         </div>
 

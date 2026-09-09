@@ -43,6 +43,7 @@ export default function StockPage() {
   const [mode, setMode] = useState("view"); // view | add | edit
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [printingItem, setPrintingItem] = useState(null);
   // The barcode actually saved in the database for the selected row - kept
   // separate from form.Barcode, which may hold a freshly-generated draft
@@ -127,6 +128,7 @@ export default function StockPage() {
 
   async function save() {
     setError("");
+    setSaving(true);
     try {
       const wasAdd = mode === "add";
       if (wasAdd) {
@@ -144,6 +146,8 @@ export default function StockPage() {
       }
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -233,7 +237,7 @@ export default function StockPage() {
         <div className="button-row">
           <button className="btn-secondary" onClick={startNew} disabled={mode !== "view"}>New</button>
           <button className="btn-secondary" onClick={startEdit} disabled={mode !== "view" || !form.StockID}>Edit</button>
-          <button className="btn-primary" onClick={save} disabled={mode === "view"}>Save</button>
+          <button className="btn-primary" onClick={save} disabled={mode === "view" || saving}>{saving ? "Saving..." : "Save"}</button>
           <button className="btn-secondary" onClick={cancel} disabled={mode === "view"}>Cancel</button>
         </div>
 

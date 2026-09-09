@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import JsBarcode from "jsbarcode";
+import { api } from "../api/client";
 import { LABEL_SIZE_OPTIONS, LABEL_SIZES, printBarcodeLabels } from "../lib/printBarcode";
 import "./SaleDetailModal.css";
 import "./PrintBarcodeModal.css";
@@ -8,6 +9,7 @@ export default function PrintBarcodeModal({ item, onClose }) {
   const [sizeKey, setSizeKey] = useState("30x20");
   const [copies, setCopies] = useState(1);
   const [showPrice, setShowPrice] = useState(true);
+  const [stockBalance, setStockBalance] = useState(null);
   const svgRef = useRef(null);
 
   const size = LABEL_SIZES[sizeKey];
@@ -17,6 +19,15 @@ export default function PrintBarcodeModal({ item, onClose }) {
     if (!hasBarcode || !svgRef.current) return;
     JsBarcode(svgRef.current, item.Barcode, { format: "CODE128", displayValue: false, margin: 10, height: 90 });
   }, [item.Barcode, hasBarcode, sizeKey]);
+
+  useEffect(() => {
+    setStockBalance(null);
+    // A freshly-created item passed straight into this modal has no
+    // StockID yet (it hasn't round-tripped through the list), so there's
+    // no balance to look up.
+    if (!item.StockID) return;
+    api.getStockTotalBalance(item.StockID).then((r) => setStockBalance(r.qty)).catch(() => {});
+  }, [item.StockID]);
 
   function handlePrint() {
     printBarcodeLabels({
@@ -44,6 +55,23 @@ export default function PrintBarcodeModal({ item, onClose }) {
           <div className="error">This item has no barcode set yet. Generate one first.</div>
         ) : (
           <>
+            {item.StockID && (
+              <div className="barcode-stock-balance">
+                {stockBalance === null ? (
+                  "Loading stock balance..."
+                ) : (
+                  <>
+                    Stock Balance: <strong>{stockBalance}</strong>
+                    {stockBalance > 0 && (
+                      <button type="button" className="barcode-balance-use" onClick={() => setCopies(stockBalance)}>
+                        Use as Copies
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="barcode-modal-fields">
               <div className="sale-field">
                 <label>Label Size</label>

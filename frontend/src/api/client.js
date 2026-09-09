@@ -66,6 +66,7 @@ export const api = {
   searchStock: (params) => request(`/stock${toQuery(params)}`),
   getStockByBarcode: (barcode) => request(`/stock/barcode/${encodeURIComponent(barcode)}`),
   getStock: (id) => request(`/stock/${id}`),
+  getStockTotalBalance: (id) => request(`/stock/${id}/balance`),
   createStock: (body) => request("/stock", { method: "POST", body: JSON.stringify(body) }),
   updateStock: (id, body) => request(`/stock/${id}`, { method: "PUT", body: JSON.stringify(body) }),
 

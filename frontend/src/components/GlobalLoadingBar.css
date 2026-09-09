@@ -3,16 +3,39 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, teal, transparent);
-  background-size: 50% 100%;
-  background-repeat: no-repeat;
-  animation: global-loading-sweep 1s ease-in-out infinite;
-  z-index: 1000;
+  height: 4px;
+  background: rgba(255, 179, 0, 0.25);
+  overflow: hidden;
+  z-index: 9999;
   pointer-events: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
-@keyframes global-loading-sweep {
-  0% { background-position: -50% 0; }
-  100% { background-position: 150% 0; }
+.global-loading-bar::before,
+.global-loading-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: #ffb300;
+  box-shadow: 0 0 8px rgba(255, 179, 0, 0.9);
+}
+
+.global-loading-bar::before {
+  animation: global-loading-bar1 2.1s cubic-bezier(0.65, 0.815, 0.735, 0.395) infinite;
+}
+
+.global-loading-bar::after {
+  animation: global-loading-bar2 2.1s cubic-bezier(0.165, 0.84, 0.44, 1) infinite;
+  animation-delay: 1.15s;
+}
+
+@keyframes global-loading-bar1 {
+  0% { left: -35%; right: 100%; }
+  60%, 100% { left: 100%; right: -90%; }
+}
+
+@keyframes global-loading-bar2 {
+  0% { left: -200%; right: 100%; }
+  60%, 100% { left: 107%; right: -8%; }
 }

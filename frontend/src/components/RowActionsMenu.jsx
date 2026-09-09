@@ -9,6 +9,7 @@ import "./RowActionsMenu.css";
  */
 export default function RowActionsMenu({ actions }) {
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -20,10 +21,28 @@ export default function RowActionsMenu({ actions }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
+  // The dropdown closes as soon as an action is picked, so the only place
+  // left to show that the click is still working (and to block a repeat
+  // click on the same row before it finishes) is the trigger itself.
+  async function runAction(fn) {
+    setOpen(false);
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="row-actions-menu" ref={ref}>
-      <button className="row-actions-trigger" onClick={() => setOpen((o) => !o)} aria-label="More actions">
-        <MoreIcon />
+      <button
+        className="row-actions-trigger"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="More actions"
+        disabled={busy}
+      >
+        {busy ? <span className="row-actions-spinner" /> : <MoreIcon />}
       </button>
       {open && (
         <div className="row-actions-dropdown">
@@ -32,7 +51,7 @@ export default function RowActionsMenu({ actions }) {
               {a.danger && i > 0 && !actions[i - 1].danger && <div className="row-actions-divider" />}
               <button
                 className={a.danger ? "row-actions-item danger" : "row-actions-item"}
-                onClick={() => { setOpen(false); a.onClick(); }}
+                onClick={() => runAction(a.onClick)}
               >
                 {a.icon && <span className="row-actions-icon">{a.icon}</span>}
                 {a.label}

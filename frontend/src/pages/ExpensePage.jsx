@@ -4,6 +4,7 @@ import SearchableSelect from "../components/SearchableSelect";
 import PaginationBar from "../components/PaginationBar";
 import SearchBox from "../components/SearchBox";
 import RowActionsMenu from "../components/RowActionsMenu";
+import LoadingOverlay from "../components/LoadingOverlay";
 import { EditIcon, TrashIcon } from "../components/icons";
 import "./StockPage.css";
 import "./UserRolePage.css";
@@ -36,6 +37,7 @@ export default function ExpensePage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [historyError, setHistoryError] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     api.listEntity("branches", { pageSize: 1000 }).then((r) => {
@@ -48,11 +50,12 @@ export default function ExpensePage() {
   }, []);
 
   function loadHistory() {
+    setHistoryLoading(true);
     api.listExpenses({ q: search, branchId, page, pageSize, fromDate, toDate }).then((r) => {
       setHistory(r.data);
       setTotalPages(r.totalPages);
       setTotal(r.total);
-    }).catch((e) => setHistoryError(e.message));
+    }).catch((e) => setHistoryError(e.message)).finally(() => setHistoryLoading(false));
   }
 
   useEffect(() => {
@@ -197,6 +200,8 @@ export default function ExpensePage() {
 
         {historyError && <div className="error">{historyError}</div>}
 
+        <div className="history-table-wrap">
+          <LoadingOverlay show={historyLoading} />
         <table>
           <thead>
             <tr>
@@ -226,11 +231,12 @@ export default function ExpensePage() {
                 </td>
               </tr>
             ))}
-            {history.length === 0 && (
+            {history.length === 0 && !historyLoading && (
               <tr><td colSpan={6} className="muted">No expenses found.</td></tr>
             )}
           </tbody>
         </table>
+        </div>
         <PaginationBar page={page} totalPages={totalPages} total={total} pageSize={pageSize}
           onPageChange={setPage} onPageSizeChange={setPageSize} />
       </div>

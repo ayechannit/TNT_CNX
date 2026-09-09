@@ -4,6 +4,7 @@ import SearchableSelect from "../components/SearchableSelect";
 import ItemFinder from "../components/ItemFinder";
 import PaginationBar from "../components/PaginationBar";
 import SearchBox from "../components/SearchBox";
+import LoadingOverlay from "../components/LoadingOverlay";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -27,6 +28,7 @@ export default function StockAdjustmentPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [historyError, setHistoryError] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     api.listEntity("branches", { pageSize: 1000 }).then((r) => {
@@ -36,11 +38,12 @@ export default function StockAdjustmentPage() {
   }, []);
 
   function loadHistory() {
+    setHistoryLoading(true);
     api.listStockAdjustments({ q: search, page, pageSize, fromDate, toDate }).then((r) => {
       setHistory(r.data);
       setTotalPages(r.totalPages);
       setTotal(r.total);
-    }).catch((e) => setHistoryError(e.message));
+    }).catch((e) => setHistoryError(e.message)).finally(() => setHistoryLoading(false));
   }
 
   useEffect(() => {
@@ -165,6 +168,8 @@ export default function StockAdjustmentPage() {
 
         {historyError && <div className="error">{historyError}</div>}
 
+        <div className="history-table-wrap">
+          <LoadingOverlay show={historyLoading} />
         <table>
           <thead>
             <tr>
@@ -192,11 +197,12 @@ export default function StockAdjustmentPage() {
                 </tr>
               );
             })}
-            {history.length === 0 && (
+            {history.length === 0 && !historyLoading && (
               <tr><td colSpan={6} className="muted">No adjustments found.</td></tr>
             )}
           </tbody>
         </table>
+        </div>
         <PaginationBar page={page} totalPages={totalPages} total={total} pageSize={pageSize}
           onPageChange={setPage} onPageSizeChange={setPageSize} />
       </div>

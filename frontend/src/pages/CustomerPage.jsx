@@ -32,6 +32,7 @@ export default function CustomerPage() {
   const [mode, setMode] = useState("view");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -100,6 +101,7 @@ export default function CustomerPage() {
 
   async function save() {
     setError("");
+    setSaving(true);
     try {
       const body = {
         PatientName: form.PatientName,
@@ -117,6 +119,8 @@ export default function CustomerPage() {
       load();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -171,7 +175,7 @@ export default function CustomerPage() {
         <div className="button-row">
           <button className="btn-secondary" onClick={startNew} disabled={mode !== "view"}>New</button>
           <button className="btn-secondary" onClick={startEdit} disabled={mode !== "view" || !form.PatientID}>Edit</button>
-          <button className="btn-primary" onClick={save} disabled={mode === "view"}>Save</button>
+          <button className="btn-primary" onClick={save} disabled={mode === "view" || saving}>{saving ? "Saving..." : "Save"}</button>
           <button className="btn-secondary" onClick={cancel} disabled={mode === "view"}>Cancel</button>
         </div>
 

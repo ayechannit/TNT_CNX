@@ -88,6 +88,20 @@ async function getById(req, res, next) {
   }
 }
 
+// Total on-hand qty across all branches - used by the barcode print dialog so
+// the user has a reference for how many labels to print.
+async function getBalance(req, res, next) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT COALESCE(SUM("Qty"), 0) AS qty FROM "StockBalance" WHERE "StockID" = $1`,
+      [req.params.id]
+    );
+    res.json({ qty: Number(rows[0].qty) });
+  } catch (err) {
+    next(err);
+  }
+}
+
 function validate(body) {
   const errors = [];
   if (!body.CategoryID) errors.push("Category is required");
@@ -193,4 +207,4 @@ async function update(req, res, next) {
   }
 }
 
-module.exports = { search, getByBarcode, getById, create, update };
+module.exports = { search, getByBarcode, getById, getBalance, create, update };

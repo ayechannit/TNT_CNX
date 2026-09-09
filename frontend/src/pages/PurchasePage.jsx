@@ -7,6 +7,7 @@ import SearchBox from "../components/SearchBox";
 import { printPurchaseVoucher } from "../lib/printVoucher";
 import PurchaseDetailModal from "../components/PurchaseDetailModal";
 import RowActionsMenu from "../components/RowActionsMenu";
+import LoadingOverlay from "../components/LoadingOverlay";
 import { EyeIcon, EditIcon, PrinterIcon, CheckCircleIcon, TrashIcon } from "../components/icons";
 import "./StockPage.css";
 import "./UserRolePage.css";
@@ -40,6 +41,7 @@ export default function PurchasePage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [historyError, setHistoryError] = useState("");
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [counts, setCounts] = useState({ paid: null, unpaid: null });
 
   useEffect(() => {
@@ -51,12 +53,13 @@ export default function PurchasePage() {
   }, []);
 
   function loadHistory() {
+    setHistoryLoading(true);
     api.listPurchases({ q: historySearch, page, pageSize, view: historyView, fromDate, toDate }).then((r) => {
       setHistory(r.data);
       setTotalPages(r.totalPages);
       setTotal(r.total);
       setCounts((c) => ({ ...c, [historyView]: r.total }));
-    }).catch((e) => setHistoryError(e.message));
+    }).catch((e) => setHistoryError(e.message)).finally(() => setHistoryLoading(false));
   }
 
   // loadHistory only fills in the count for whichever tab is currently
@@ -377,6 +380,8 @@ export default function PurchasePage() {
 
         {historyError && <div className="error">{historyError}</div>}
 
+        <div className="history-table-wrap">
+          <LoadingOverlay show={historyLoading} />
         <table>
           <thead>
             <tr>
@@ -415,11 +420,12 @@ export default function PurchasePage() {
                 </td>
               </tr>
             ))}
-            {history.length === 0 && (
+            {history.length === 0 && !historyLoading && (
               <tr><td colSpan={8} className="muted">No purchases found.</td></tr>
             )}
           </tbody>
         </table>
+        </div>
         <PaginationBar page={page} totalPages={totalPages} total={total} pageSize={pageSize}
           onPageChange={setPage} onPageSizeChange={setPageSize} />
       </div>

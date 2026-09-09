@@ -402,6 +402,11 @@
   font-size: 12px;
 }
 
+.history-table-wrap {
+  position: relative;
+  min-height: 80px;
+}
+
 .sale-history table {
   width: 100%;
   border-collapse: collapse;
