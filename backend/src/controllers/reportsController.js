@@ -661,7 +661,10 @@ async function run(req, res, next) {
   try {
     const { text, values } = report.build(req.query);
     const { rows } = await pool.query(text, values);
-    res.json({ data: rows });
+    // Every report query ends in LIMIT ROW_LIMIT, so hitting exactly that
+    // count means there may be more rows than shown - flag it rather than
+    // silently presenting a partial result as complete.
+    res.json({ data: rows, truncated: rows.length === ROW_LIMIT });
   } catch (err) {
     if (err.status === 400) return res.status(400).json({ error: err.message });
     next(err);

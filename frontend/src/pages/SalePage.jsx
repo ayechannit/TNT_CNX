@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import SearchableSelect from "../components/SearchableSelect";
+import AsyncSearchableSelect from "../components/AsyncSearchableSelect";
 import ItemFinder from "../components/ItemFinder";
 import PaginationBar from "../components/PaginationBar";
 import { printSaleVoucher } from "../lib/printVoucher";
@@ -34,7 +35,7 @@ const emptyOptic = {
 
 export default function SalePage() {
   const [branches, setBranches] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [branchId, setBranchId] = useState("");
   const [saleDate, setSaleDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [patientId, setPatientId] = useState("");
@@ -71,8 +72,20 @@ export default function SalePage() {
       setBranches(r.data);
       if (r.data.length > 0) setBranchId(r.data[0].id);
     }).catch((e) => setError(e.message));
-    api.listEntity("customers", { pageSize: 1000 }).then((r) => setCustomers(r.data)).catch((e) => setError(e.message));
   }, []);
+
+  // Customers are searched from the server as the user types rather than
+  // preloaded in full - the list can grow far larger than is reasonable to
+  // fetch and filter client-side (unlike branches, which stay small).
+  function loadCustomerOptions(q) {
+    return api.listEntity("customers", { q, pageSize: 20 }).then((r) =>
+      r.data.map((c) => ({
+        value: c.PatientID,
+        label: `${c.PatientName}${c.memberID ? " (Member)" : ""}`,
+        raw: c,
+      }))
+    );
+  }
 
   function loadHistory() {
     setHistoryLoading(true);
@@ -183,6 +196,7 @@ export default function SalePage() {
       setBranchId(sale.BranchID);
       setSaleDate((sale.SaleDate || "").slice(0, 10));
       setPatientId(sale.PatientID);
+      api.getEntity("customers", sale.PatientID).then(setSelectedCustomer).catch(() => {});
       setDiscount(Number(sale.Discount) || 0);
       setTax(Number(sale.Tax) || 0);
       setPaid(Number(sale.Paid) || 0);
@@ -216,8 +230,8 @@ export default function SalePage() {
   }
 
   function handleCustomerCreated(customer) {
-    setCustomers((prev) => [...prev, customer]);
     setPatientId(customer.PatientID);
+    setSelectedCustomer(customer);
     setShowAddCustomer(false);
   }
 
@@ -249,8 +263,6 @@ export default function SalePage() {
     setOptic((o) => ({ ...o, deliver: checked, deliverydate: checked ? o.deliverydate : "" }));
   }
 
-  const selectedCustomer = customers.find((c) => String(c.PatientID) === String(patientId));
-
   const itemsTotal = items.reduce((sum, i) => sum + Number(i.qty) * Number(i.price), 0);
   const totalAmount = itemsTotal - Number(discount || 0) + Number(tax || 0);
   const leftover = totalAmount - Number(paid || 0);
@@ -258,6 +270,7 @@ export default function SalePage() {
   function resetForm() {
     setSaleDate(new Date().toISOString().slice(0, 10));
     setPatientId("");
+    setSelectedCustomer(null);
     setItems([]);
     setDiscount(0);
     setTax(0);
@@ -326,13 +339,13 @@ export default function SalePage() {
         <div className="sale-field sale-field-wide">
           <label>Customer</label>
           <div className="customer-field-row">
-            <SearchableSelect
-              placeholder="Select a customer..."
-              value={patientId}
-              onChange={setPatientId}
+            <AsyncSearchableSelect
+              placeholder="Search a customer by name, phone, or member ID..."
+              selected={selectedCustomer ? { value: selectedCustomer.PatientID, label: `${selectedCustomer.PatientName}${selectedCustomer.memberID ? " (Member)" : ""}` } : null}
+              onChange={(opt) => { setPatientId(opt ? opt.value : ""); setSelectedCustomer(opt ? opt.raw : null); }}
               onInputChange={setCustomerSearchText}
               noOptionsMessage={() => "No customer found - use \"+ New\" to add one"}
-              options={customers.map((c) => ({ value: c.PatientID, label: `${c.PatientName}${c.memberID ? " (Member)" : ""}` }))}
+              loadOptions={loadCustomerOptions}
             />
             <button type="button" className="btn-secondary customer-add-btn" onClick={() => setShowAddCustomer(true)}>
               + New

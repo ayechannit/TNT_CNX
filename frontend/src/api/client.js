@@ -123,5 +123,5 @@ export const api = {
   deleteSaleReturn: (id) => request(`/sale-returns/${id}`, { method: "DELETE" }),
 
   listReports: () => request("/reports").then((r) => r.data),
-  runReport: (key, params) => request(`/reports/${key}${toQuery(params)}`).then((r) => r.data),
+  runReport: (key, params) => request(`/reports/${key}${toQuery(params)}`),
 };

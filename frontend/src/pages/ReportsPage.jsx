@@ -24,6 +24,7 @@ export default function ReportsPage() {
   const [categories, setCategories] = useState([]);
   const [params, setParams] = useState({});
   const [rows, setRows] = useState(null);
+  const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -73,11 +74,13 @@ export default function ReportsPage() {
           throw new Error(`${paramLabel(p.name)} is required`);
         }
       }
-      const data = await api.runReport(activeReport.key, params);
-      setRows(data);
+      const result = await api.runReport(activeReport.key, params);
+      setRows(result.data);
+      setTruncated(!!result.truncated);
     } catch (err) {
       setError(err.message);
       setRows(null);
+      setTruncated(false);
     } finally {
       setLoading(false);
     }
@@ -230,6 +233,11 @@ export default function ReportsPage() {
           {rows && (
             <div className="reports-results">
               <div className="reports-results-meta">{rows.length} row{rows.length === 1 ? "" : "s"}</div>
+              {truncated && (
+                <div className="error">
+                  Showing the first {rows.length.toLocaleString()} rows only - there may be more. Narrow the date range or filters to see the rest.
+                </div>
+              )}
               <div className="reports-table-wrap">
                 <table>
                   <thead>
