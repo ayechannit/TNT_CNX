@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import SearchableSelect from "../components/SearchableSelect";
-import { printReportTable } from "../lib/printReport";
+import { printReportTable, printStatementReport } from "../lib/printReport";
+import { isNumericType, formatValue, formatSum, formatSignedSum, sumFields, groupRowsBy } from "../lib/reportFormat";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -13,6 +14,22 @@ function todayStr() {
 function monthStartStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function TotalRow({ columns, label, sums, rowClass }) {
+  const totalFields = Object.keys(sums);
+  const firstIdx = columns.findIndex((c) => totalFields.includes(c.field));
+  const labelColspan = firstIdx === -1 ? columns.length : firstIdx;
+  return (
+    <tr className={rowClass}>
+      <td colSpan={labelColspan} className="total-label">{label}</td>
+      {columns.slice(labelColspan).map((c) => (
+        <td key={c.field} className={totalFields.includes(c.field) ? "num" : ""}>
+          {totalFields.includes(c.field) ? formatSum(sums[c.field], c.type) : ""}
+        </td>
+      ))}
+    </tr>
+  );
 }
 
 export default function ReportsPage() {
@@ -101,10 +118,25 @@ export default function ReportsPage() {
 
   function printReport() {
     if (!activeReport || !rows) return;
+    const print = activeReport.print;
+    const filters = activeReport.params.map((p) => ({ label: paramLabel(p.name), value: paramDisplayValue(p) }));
+    if (print?.statement) {
+      printStatementReport({
+        title: activeReport.label,
+        orientation: print.orientation || "portrait",
+        filters,
+        lines: print.statement.lines,
+        row: rows[0],
+      });
+      return;
+    }
     printReportTable({
       title: activeReport.label,
-      filters: activeReport.params.map((p) => ({ label: paramLabel(p.name), value: paramDisplayValue(p) })),
-      columns,
+      orientation: print?.orientation || "portrait",
+      filters,
+      columns: print?.columns || rawColumns.map((c) => ({ field: c, header: c })),
+      group: print?.group,
+      totals: print?.totals,
       rows,
     });
   }
@@ -177,7 +209,9 @@ export default function ReportsPage() {
     return <input className="reports-input" value={value} onChange={(e) => setParam(p.name, e.target.value)} />;
   }
 
-  const columns = rows && rows.length > 0 ? Object.keys(rows[0]) : [];
+  const rawColumns = rows && rows.length > 0 ? Object.keys(rows[0]) : [];
+  const printCfg = activeReport?.print;
+  const displayColumns = printCfg?.columns && printCfg.columns.length > 0 ? printCfg.columns : rawColumns.map((c) => ({ field: c, header: c }));
 
   return (
     <div className="sale-page reports-page">
@@ -232,37 +266,67 @@ export default function ReportsPage() {
 
           {rows && (
             <div className="reports-results">
+              <div className="reports-report-head">
+                <div className="reports-report-company">The New Trend</div>
+                <div className="reports-report-title">{activeReport.label}</div>
+              </div>
               <div className="reports-results-meta">{rows.length} row{rows.length === 1 ? "" : "s"}</div>
               {truncated && (
                 <div className="error">
                   Showing the first {rows.length.toLocaleString()} rows only - there may be more. Narrow the date range or filters to see the rest.
                 </div>
               )}
-              <div className="reports-table-wrap">
-                <table>
-                  <thead>
-                    <tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, i) => (
-                      <tr key={i}>
-                        {columns.map((c) => {
-                          const v = r[c];
-                          const isNumeric = v !== null && v !== "" && typeof v !== "boolean" && !isNaN(Number(v));
-                          return (
-                            <td key={c} className={isNumeric ? "num" : ""}>
-                              {v === null || v === undefined ? "" : String(v)}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                    {rows.length === 0 && (
-                      <tr><td colSpan={Math.max(columns.length, 1)} className="muted">No data for the selected filters.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              {printCfg?.statement ? (
+                <div className="reports-statement">
+                  {printCfg.statement.lines.map((line, i) =>
+                    line.section ? (
+                      <div className="reports-statement-section" key={i}>{line.section}</div>
+                    ) : (
+                      <div className={`reports-statement-line ${line.bold ? "bold" : ""} ${line.big ? "big" : ""}`} key={i}>
+                        <span>{line.label}</span>
+                        <span className="reports-statement-value">{formatSignedSum(Number(rows[0]?.[line.field]) || 0)}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : (
+                <div className="reports-table-wrap">
+                  <table>
+                    <thead>
+                      <tr>{displayColumns.map((c) => <th key={c.field} className={isNumericType(c) ? "num" : ""}>{c.header}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {rows.length === 0 && (
+                        <tr><td colSpan={Math.max(displayColumns.length, 1)} className="muted">No data for the selected filters.</td></tr>
+                      )}
+                      {rows.length > 0 && printCfg?.group ? (
+                        groupRowsBy(rows, printCfg.group.field).map((g, gi) => (
+                          <Fragment key={gi}>
+                            <tr className="group-header"><td colSpan={displayColumns.length}>{g.value ?? ""}</td></tr>
+                            {g.rows.map((r, ri) => (
+                              <tr key={ri}>
+                                {displayColumns.map((c) => <td key={c.field} className={isNumericType(c) ? "num" : ""}>{formatValue(c, r)}</td>)}
+                              </tr>
+                            ))}
+                            {printCfg.group.subtotalColumns?.length > 0 && (
+                              <TotalRow columns={displayColumns} label={printCfg.group.subtotalLabel || "Subtotal"} sums={sumFields(g.rows, printCfg.group.subtotalColumns)} rowClass="subtotal-row" />
+                            )}
+                          </Fragment>
+                        ))
+                      ) : (
+                        rows.map((r, i) => (
+                          <tr key={i}>
+                            {displayColumns.map((c) => <td key={c.field} className={isNumericType(c) ? "num" : ""}>{formatValue(c, r)}</td>)}
+                          </tr>
+                        ))
+                      )}
+                      {rows.length > 0 && printCfg?.totals?.length > 0 && (
+                        <TotalRow columns={displayColumns} label="Total" sums={sumFields(rows, printCfg.totals)} rowClass="grand-total-row" />
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -8,14 +8,14 @@ const pool = require("../db/pool");
 //    R_DebitVoucher - these are all "look up one existing voucher's data for
 //    printing/reprint", which is already covered by the getById endpoints on
 //    /api/sales, /api/purchases, /api/returns, /api/sale-returns, /api/transfers.
-//  - R_Get_Profit / R_BalanceSheet - these just `SELECT * FROM` a cached temp
-//    table (temp_profit / temp_balancesheet) that only R_Profit itself (for
-//    temp_profit) populates as a side effect of being called; temp_balancesheet
-//    has no known populating proc in this database at all (1 stale row, likely
-//    populated manually once). Ported R_Profit's live computation as
-//    `profit_report` instead, and added `balance_sheet_cashflow` as a live
-//    equivalent of the balance sheet's intent (Payment totals grouped by
-//    tablename for a date range) rather than reading frozen/orphaned data.
+//  - R_Get_Profit just `SELECT * FROM temp_profit`, a cache table that only
+//    R_Profit itself populates as a side effect of being called - ported
+//    R_Profit's live computation as `profit_report` instead of reading that
+//    cache. The "BalanceSheet" proc backing R_BalanceSheet.rdlc isn't present
+//    in this migrated database at all (only a stale, manually-populated
+//    temp_balancesheet row survived) - `balance_sheet_report` reconstructs
+//    its line items from the RDLC's own field labels/formulas instead (see
+//    the comment on that report below).
 //  - R_StockUsage and R_TransferStock reference tables that do not exist in
 //    this migrated schema at all (DailyTransactionHDR/DTL, BranchMaster,
 //    StockUnit, BrandMaster, UnitMaster) - confirmed via information_schema.
@@ -42,6 +42,23 @@ const REPORTS = {
   sales_report: {
     label: "Sale Report (Summary)",
     category: "Sales",
+    print: {
+      orientation: "landscape",
+      columns: [
+        { field: "SaleDate", header: "Sale Date", type: "date" },
+        { field: "SaleCode", header: "Sale Code" },
+        { field: "CustomerName", header: "Customer Name" },
+        { field: "CustomerInfo", header: "Customer Info" },
+        { field: "memberID", header: "Member ID" },
+        { field: "TotalAmount", header: "Total Amount", type: "number" },
+        { field: "Discount", header: "Discount", type: "number" },
+        { field: "NetAmount", header: "Net Amount", type: "number" },
+        { field: "Receive", header: "Receive", type: "number" },
+        { field: "Balance", header: "Balance", type: "number" },
+        { field: "Remark", header: "Remark" },
+      ],
+      totals: ["TotalAmount", "Discount", "NetAmount", "Receive", "Balance"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -59,6 +76,23 @@ const REPORTS = {
   sales_detail_report: {
     label: "Sale Report (Item Detail)",
     category: "Sales",
+    print: {
+      orientation: "landscape",
+      columns: [
+        { field: "SaleDate", header: "Sale Date", type: "date" },
+        { field: "SaleCode", header: "Sale Code" },
+        { field: "CustomerName", header: "Customer Name" },
+        { field: "CustomerInfo", header: "Customer Info" },
+        { field: "memberID", header: "Member ID" },
+        { field: "StockCode", header: "Stock Code" },
+        { field: "StockName", header: "Stock Name" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Price", type: "number" },
+        { field: "Amount", header: "Amount", type: "number" },
+        { field: "Remark", header: "Remark" },
+      ],
+      totals: ["Amount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -77,6 +111,17 @@ const REPORTS = {
   sales_by_cashier: {
     label: "Sales By Item / Cashier",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockName", header: "Stock Name" },
+        { field: "CategoryName", header: "Category" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Each", type: "number" },
+        { field: "Amount", header: "Total", type: "number" },
+      ],
+      totals: ["Amount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }, { name: "cashierUserId", type: "text", required: false }],
     build(q) {
       const cashier = opt(q, "cashierUserId", "");
@@ -98,6 +143,17 @@ const REPORTS = {
   monthly_sale_by_item: {
     label: "Monthly Sale By Item (Current Month)",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockName", header: "Stock Name" },
+        { field: "CategoryName", header: "Category" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Each", type: "number" },
+        { field: "_lineTotal", header: "Total", type: "number", compute: "qtyPrice" },
+      ],
+      totals: [],
+    },
     params: [{ name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -116,6 +172,18 @@ const REPORTS = {
   cash_receipts_sale: {
     label: "Cash Receipts (Sales)",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "ReceiveDate", header: "Receive Date", type: "date" },
+        { field: "SaleVoucher", header: "Sale Voucher" },
+        { field: "CustomerName", header: "Customer Name" },
+        { field: "CustomerInfo", header: "Customer Info" },
+        { field: "memberID", header: "Member ID" },
+        { field: "Received", header: "Received", type: "number" },
+      ],
+      totals: ["Received"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -134,6 +202,17 @@ const REPORTS = {
   sale_debtors_by_customer: {
     label: "Sale Debtors By Customer",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "PatientName", header: "Customer" },
+        { field: "PhoneNo", header: "Phone Number" },
+        { field: "TotalAmount", header: "Total", type: "number" },
+        { field: "TotalPaid", header: "Paid", type: "number" },
+        { field: "LeftOver", header: "Debit", type: "number" },
+      ],
+      totals: [],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }, { name: "search", type: "text", required: false }],
     build(q) {
       const search = opt(q, "search", "");
@@ -154,6 +233,18 @@ const REPORTS = {
   sale_debtors_by_voucher: {
     label: "Sale Debtors By Voucher",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "SaleDate", header: "Date", type: "date" },
+        { field: "SaleCode", header: "Vr No" },
+        { field: "PatientName", header: "Patient" },
+        { field: "TotalAmount", header: "Total", type: "number" },
+        { field: "Paid", header: "Paid", type: "number" },
+        { field: "LeftOver", header: "Debit", type: "number" },
+      ],
+      totals: ["TotalAmount", "Paid", "LeftOver"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }, { name: "search", type: "text", required: false }],
     build(q) {
       const search = opt(q, "search", "");
@@ -173,6 +264,18 @@ const REPORTS = {
   sale_debit_receive: {
     label: "Sale Debit Payments Received",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "paymentdate", header: "Paid Date", type: "date" },
+        { field: "SaleCode", header: "Code" },
+        { field: "PatientName", header: "Customer Name" },
+        { field: "PhoneNo", header: "Phone No" },
+        { field: "Sex", header: "Sex" },
+        { field: "paidamount", header: "Paid Amount", type: "number" },
+      ],
+      totals: ["paidamount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -189,6 +292,16 @@ const REPORTS = {
   refund_service_sales: {
     label: "Service Sales (Category 2) Summary",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockName", header: "Stock Name" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Each", type: "number" },
+        { field: "Amount", header: "Total", type: "number" },
+      ],
+      totals: ["Amount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -204,6 +317,18 @@ const REPORTS = {
   refund_by_stock: {
     label: "Sales Of One Item By Date",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "SaleDate", header: "Date", type: "date" },
+        { field: "SaleCode", header: "Slip No" },
+        { field: "PatientName", header: "Patient" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Each", type: "number" },
+        { field: "Amount", header: "Total", type: "number" },
+      ],
+      totals: ["Amount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "stockId", type: "stock", required: true }],
     build(q) {
       return {
@@ -220,6 +345,15 @@ const REPORTS = {
   member_usage_count: {
     label: "Member Usage Count",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "PatientName", header: "Customer Name" },
+        { field: "memberID", header: "Member Card ID" },
+        { field: "MCount", header: "Member (Count)", type: "int" },
+      ],
+      totals: [],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "search", type: "text", required: false }],
     build(q) {
       const search = opt(q, "search", "");
@@ -238,6 +372,18 @@ const REPORTS = {
   member_usage_voucher: {
     label: "Member Usage Vouchers",
     category: "Sales",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "SaleCode", header: "Sale Code" },
+        { field: "PatientName", header: "Customer Name" },
+        { field: "Discount", header: "Discount", type: "number" },
+        { field: "TotalAmount", header: "Total Amount", type: "number" },
+        { field: "MemberID", header: "Member Card ID" },
+        { field: "MemberName", header: "Member Name" },
+      ],
+      totals: [],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "search", type: "text", required: false }],
     build(q) {
       const search = opt(q, "search", "");
@@ -260,6 +406,22 @@ const REPORTS = {
   purchase_report: {
     label: "Purchase Report (Summary)",
     category: "Purchases",
+    print: {
+      orientation: "landscape",
+      columns: [
+        { field: "PurchaseDate", header: "PurDate", type: "date" },
+        { field: "PurchaseCode", header: "PurVoucher" },
+        { field: "SupplierName", header: "Supplier Name" },
+        { field: "SupplierInfo", header: "Supplier Info" },
+        { field: "TotalAmount", header: "Total Amount", type: "number" },
+        { field: "Discount", header: "Discount", type: "number" },
+        { field: "NetAmount", header: "Net Amount", type: "number" },
+        { field: "Receive", header: "Paid", type: "number" },
+        { field: "Balance", header: "Balance", type: "number" },
+        { field: "Remark", header: "Remark" },
+      ],
+      totals: ["TotalAmount", "Discount", "NetAmount", "Receive", "Balance"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -276,6 +438,22 @@ const REPORTS = {
   purchase_detail_report: {
     label: "Purchase Report (Item Detail)",
     category: "Purchases",
+    print: {
+      orientation: "landscape",
+      columns: [
+        { field: "PurchaseDate", header: "PurDate", type: "date" },
+        { field: "PurchaseCode", header: "PurVoucher" },
+        { field: "CustomerName", header: "Supplier Name" },
+        { field: "SupplierInfo", header: "Supplier Info" },
+        { field: "StockCode", header: "Stock Code" },
+        { field: "StockName", header: "Stock Name" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Cost", type: "number" },
+        { field: "Amount", header: "Amount", type: "number" },
+        { field: "Remark", header: "Remark" },
+      ],
+      totals: [],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -293,6 +471,17 @@ const REPORTS = {
   purchase_summary_by_item: {
     label: "Purchase Summary By Item",
     category: "Purchases",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockName", header: "Stock Name" },
+        { field: "CategoryName", header: "Category" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Each", type: "number" },
+        { field: "Amount", header: "Total", type: "number" },
+      ],
+      totals: ["Amount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }, { name: "supplierId", type: "supplier", required: false }, { name: "categoryId", type: "category", required: false }],
     build(q) {
       const supplierId = opt(q, "supplierId", "");
@@ -316,6 +505,17 @@ const REPORTS = {
   monthly_purchase_by_item: {
     label: "Monthly Purchase By Item (Current Month)",
     category: "Purchases",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockName", header: "Stock Name" },
+        { field: "CategoryName", header: "Category" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Each", type: "number" },
+        { field: "_lineTotal", header: "Total", type: "number", compute: "qtyPrice" },
+      ],
+      totals: [],
+    },
     params: [{ name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -334,6 +534,17 @@ const REPORTS = {
   cash_payments_purchase: {
     label: "Cash Payments (Purchases)",
     category: "Purchases",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "ReceiveDate", header: "Pay Date", type: "date" },
+        { field: "SaleVoucher", header: "Sale Voucher" },
+        { field: "SupplierName", header: "Supplier Name" },
+        { field: "CustomerInfo", header: "Supplier Info" },
+        { field: "Paid", header: "Paid", type: "number" },
+      ],
+      totals: ["Paid"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -350,6 +561,18 @@ const REPORTS = {
   purchase_creditors: {
     label: "Purchase Creditors (Unpaid)",
     category: "Purchases",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "PurchaseDate", header: "Date", type: "date" },
+        { field: "PurchaseCode", header: "Vr No" },
+        { field: "SupplierName", header: "Supplier" },
+        { field: "TotalAmount", header: "Total", type: "number" },
+        { field: "Paid", header: "Paid", type: "number" },
+        { field: "LeftOver", header: "Credit", type: "number" },
+      ],
+      totals: ["TotalAmount", "Paid", "LeftOver"],
+    },
     params: [{ name: "branchId", type: "branch", required: true }, { name: "supplierId", type: "supplier", required: false }],
     build(q) {
       const supplierId = opt(q, "supplierId", "");
@@ -368,6 +591,17 @@ const REPORTS = {
   return_summary_by_item: {
     label: "Return / Damage Summary By Item",
     category: "Returns",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "Date", header: "Date", type: "date" },
+        { field: "SupplierName", header: "Supplier Name" },
+        { field: "StockName", header: "Stock Name" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Price", type: "number" },
+      ],
+      totals: [],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }, { name: "type", type: "select", options: ["RETURN", "DAMAGE"], required: true }, { name: "supplierId", type: "supplier", required: false }],
     build(q) {
       const supplierId = opt(q, "supplierId", "");
@@ -389,6 +623,17 @@ const REPORTS = {
   monthly_return_by_item: {
     label: "Monthly Return / Damage By Item (Current Month)",
     category: "Returns",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockName", header: "Stock Name" },
+        { field: "CategoryName", header: "Category" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Each", type: "number" },
+        { field: "_lineTotal", header: "Total", type: "number", compute: "qtyPrice" },
+      ],
+      totals: [],
+    },
     params: [{ name: "branchId", type: "branch", required: true }, { name: "status", type: "select", options: ["PAID", "LEFTOVER"], required: true }],
     build(q) {
       return {
@@ -407,6 +652,19 @@ const REPORTS = {
   return_creditors: {
     label: "Return / Damage Creditors (Unpaid)",
     category: "Returns",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "ReturnCode", header: "Code" },
+        { field: "Date", header: "Date", type: "date" },
+        { field: "SupplierName", header: "Supplier" },
+        { field: "TotalAmount", header: "Total", type: "number" },
+        { field: "Paid", header: "Paid", type: "number" },
+        { field: "LeftOver", header: "Credit", type: "number" },
+        { field: "Note", header: "Note" },
+      ],
+      totals: ["TotalAmount", "Paid", "LeftOver"],
+    },
     params: [{ name: "branchId", type: "branch", required: true }, { name: "type", type: "select", options: ["RETURN", "DAMAGE"], required: true }, { name: "supplierId", type: "supplier", required: false }],
     build(q) {
       const supplierId = opt(q, "supplierId", "");
@@ -423,6 +681,18 @@ const REPORTS = {
   sale_return_summary: {
     label: "Sale Return Summary By Item",
     category: "Returns",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockName", header: "Stock Name" },
+        { field: "CategoryName", header: "Category" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Price", type: "number" },
+        { field: "Amount", header: "Amount", type: "number" },
+        { field: "TotalPaid", header: "Total Paid", type: "number" },
+      ],
+      totals: ["Amount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }],
     build(q) {
       return {
@@ -439,6 +709,18 @@ const REPORTS = {
   sale_return_by_customer: {
     label: "Sale Return Detail By Customer",
     category: "Returns",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockName", header: "Stock Name" },
+        { field: "CategoryName", header: "Category" },
+        { field: "PatientName", header: "Customer" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Price", type: "number" },
+        { field: "Amount", header: "Amount", type: "number" },
+      ],
+      totals: ["Amount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -460,6 +742,16 @@ const REPORTS = {
   stock_balance_by_date: {
     label: "Stock Balance As Of Date",
     category: "Stock",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "Branch", header: "Branch" },
+        { field: "StockCode", header: "Stock Code" },
+        { field: "StockName", header: "Stock Name" },
+        { field: "StockBalance", header: "Stock Balance", type: "int" },
+      ],
+      totals: [],
+    },
     params: [{ name: "asOfDate", type: "date", required: true }, { name: "branchId", type: "branch", required: false }, { name: "stockCode", type: "text", required: false }],
     build(q) {
       const branchId = opt(q, "branchId", null);
@@ -514,6 +806,16 @@ const REPORTS = {
   expense_report: {
     label: "Expense Report (Detail)",
     category: "Finance",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "ExpenseDate", header: "Expense Date", type: "date" },
+        { field: "BranchName", header: "Branch Name" },
+        { field: "Description", header: "Description" },
+        { field: "Amount", header: "Amount", type: "number" },
+      ],
+      totals: ["Amount"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: false }],
     build(q) {
       const branchId = opt(q, "branchId", null);
@@ -532,6 +834,14 @@ const REPORTS = {
   expense_summary: {
     label: "Expense Summary By Type",
     category: "Finance",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "ExpenseType", header: "Expense Type" },
+        { field: "TotalExpense", header: "Amount", type: "number" },
+      ],
+      totals: ["TotalExpense"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -546,6 +856,22 @@ const REPORTS = {
   profit_report: {
     label: "Daily Profit Report",
     category: "Finance",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "SaleDate", header: "Date", type: "date" },
+        { field: "SaleTotal", header: "Sale", type: "number" },
+        { field: "SaleReturnTotal", header: "Sale Return", type: "number" },
+        { field: "ServiceTotal", header: "Service", type: "number" },
+        { field: "PurchaseTotal", header: "Purchase", type: "number" },
+        { field: "ReturnTotal", header: "Return", type: "number" },
+        { field: "DamageTotal", header: "Damage", type: "number" },
+        { field: "TransferIn", header: "Transfer In", type: "number" },
+        { field: "TransferOut", header: "Transfer Out", type: "number" },
+        { field: "ExpenseTotal", header: "Expense", type: "number" },
+      ],
+      totals: ["SaleTotal", "SaleReturnTotal", "ServiceTotal", "PurchaseTotal", "ReturnTotal", "DamageTotal", "TransferIn", "TransferOut", "ExpenseTotal"],
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
@@ -567,17 +893,111 @@ const REPORTS = {
       };
     },
   },
-  balance_sheet_cashflow: {
-    label: "Cash Flow Summary (Balance Sheet)",
+  balance_sheet_report: {
+    label: "Balance Sheet",
     category: "Finance",
+    // Ported from the legacy "BalanceSheet" stored proc / R_BalanceSheet.rdlc.
+    // That proc isn't present in this migrated database (only a stale,
+    // manually-populated temp_balancesheet row survived the migration), so
+    // each line below is reconstructed from the RDLC's field labels using the
+    // same underlying tables/aggregates already established by the other
+    // ported reports (Payment.tablename for cash movements, Hdr.LeftOver for
+    // outstanding debt, ReturnHdr.Type for return/damage splits, etc).
+    // "FEE" (a component of the RDLC's "Service Sales" alongside its
+    // mislabeled "REFUND" field, itself confirmed elsewhere - see profit_report
+    // - to actually mean category-2 "service" sales) has no discoverable
+    // source in this schema and is treated as 0.
+    print: {
+      orientation: "portrait",
+      statement: {
+        lines: [
+          { section: "Sale Revenue" },
+          { label: "Product Sales", field: "ProductSales" },
+          { label: "Sale Debt Receives", field: "SaleDebtReceives" },
+          { label: "Sale Returns", field: "SaleReturns" },
+          { label: "Sale Debts", field: "SaleDebts" },
+          { label: "Service Sales", field: "ServiceSales" },
+          { label: "Total Sale Revenue", field: "TotalSaleRevenue", bold: true },
+          { section: "Purchase Expenses" },
+          { label: "Purchase Stocks", field: "PurchaseStocks" },
+          { label: "Purchase Credit Payments", field: "PurchaseCreditPayments" },
+          { label: "Purchase Return Receives", field: "PurchaseReturnReceives" },
+          { label: "Purchase Return Debts", field: "PurchaseReturnDebts" },
+          { label: "Purchase Return Debt Receives", field: "PurchaseReturnDebtReceives" },
+          { label: "Purchase Credits", field: "PurchaseCredits" },
+          { label: "Damage Stocks", field: "DamageStocks" },
+          { label: "Total Purchase Income", field: "TotalPurchaseIncome", bold: true },
+          { section: "Sale Expenses" },
+          { label: "Sale Refunds", field: "SaleRefunds" },
+          { label: "Total Sale Expenses", field: "TotalSaleExpenses", bold: true },
+          { section: "Income" },
+          { label: "Total Income", field: "TotalIncome", bold: true },
+          { section: "Expense" },
+          { label: "Total Purchase Expenses", field: "TotalPurchaseExpenses", bold: true },
+          { label: "Total Expenses", field: "TotalExpenses", bold: true },
+          { label: "Total Debts", field: "TotalDebts", bold: true },
+          { label: "Total Credits", field: "TotalCredits", bold: true },
+          { label: "Net Earning", field: "NetEarning", bold: true, big: true },
+          { section: "General Expense" },
+          { label: "Total General Expense", field: "TotalGeneralExpense" },
+          { label: "Transfer In", field: "TransferIn" },
+          { label: "Transfer Out", field: "TransferOut" },
+        ],
+      },
+    },
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
+      const fromDate = need(q, "fromDate");
+      const toDate = need(q, "toDate");
+      const branchId = need(q, "branchId");
       return {
-        text: `SELECT tablename AS "Category", SUM(paidamount) AS "Total", COUNT(*) AS "Count"
-         FROM "Payment"
-         WHERE paymentdate::date BETWEEN $1::date AND $2::date AND branchid = $3
-         GROUP BY tablename ORDER BY tablename LIMIT ${ROW_LIMIT}`,
-        values: [need(q, "fromDate"), need(q, "toDate"), need(q, "branchId")],
+        text: `WITH raw AS (
+           SELECT
+             COALESCE((SELECT SUM(p.paidamount) FROM "Payment" p WHERE p.tablename = 'SALE' AND p.paymentdate::date BETWEEN $1::date AND $2::date AND p.branchid = $3), 0) AS "SALE",
+             COALESCE((SELECT SUM(p.paidamount) FROM "Payment" p WHERE p.tablename = 'DEBITPAID' AND p.paymentdate::date BETWEEN $1::date AND $2::date AND p.branchid = $3), 0) AS "DEBITPAID",
+             COALESCE((SELECT SUM(p.paidamount) FROM "Payment" p WHERE p.tablename = 'PURCHASE' AND p.paymentdate::date BETWEEN $1::date AND $2::date AND p.branchid = $3), 0) AS "PURCHASE",
+             COALESCE((SELECT SUM(p.paidamount) FROM "Payment" p WHERE p.tablename = 'CREDITPAID' AND p.paymentdate::date BETWEEN $1::date AND $2::date AND p.branchid = $3), 0) AS "CREDITPAID",
+             COALESCE((SELECT SUM(p.paidamount) FROM "Payment" p WHERE p.tablename = 'SALERETURN' AND p.paymentdate::date BETWEEN $1::date AND $2::date AND p.branchid = $3), 0) AS "SALERETURN",
+             COALESCE((SELECT SUM(p.paidamount) FROM "Payment" p WHERE p.tablename = 'DEBITRETURN' AND p.paymentdate::date BETWEEN $1::date AND $2::date AND p.branchid = $3), 0) AS "DEBITRETURN",
+             COALESCE((SELECT SUM(h."Paid") FROM "ReturnHdr" h WHERE h."Type" = 'RETURN' AND h."Date"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3), 0) AS "PRETURN",
+             COALESCE((SELECT SUM(h."LeftOver") FROM "ReturnHdr" h WHERE h."Type" = 'RETURN' AND h."Date"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3), 0) AS "PDEBIT",
+             COALESCE((SELECT SUM(h."TotalAmount") FROM "ReturnHdr" h WHERE h."Type" = 'DAMAGE' AND h."Date"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3), 0) AS "DAMAGE",
+             COALESCE((SELECT SUM(h."LeftOver") FROM "SaleHdr" h WHERE h."SaleDate"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3), 0) AS "DEBIT",
+             COALESCE((SELECT SUM(h."LeftOver") FROM "PurchaseHdr" h WHERE h."PurchaseDate"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3), 0) AS "CREDIT",
+             COALESCE((SELECT SUM(dt."Amount") FROM "SaleHdr" h JOIN "SaleDtl" dt ON h."SaleID" = dt."SaleHDRID" JOIN "StockMaster" s ON dt."StockCode"::int = s."StockID"
+               WHERE s."CategoryID" = 2 AND h."BranchID" = $3 AND h."SaleDate"::date BETWEEN $1::date AND $2::date), 0) AS "REFUND",
+             COALESCE((SELECT SUM(amount) FROM "Expense" WHERE status != 'delete' AND expensedate::date BETWEEN $1::date AND $2::date AND branchid = $3), 0) AS "EXPENSE",
+             COALESCE((SELECT SUM("TotalAmount") FROM "TransferHdr" WHERE "TransferDate"::date BETWEEN $1::date AND $2::date AND "ToBranchID" = $3 AND "TransferStatus" = 'Done'), 0) AS "TransferIn",
+             COALESCE((SELECT SUM("TotalAmount") FROM "TransferHdr" WHERE "TransferDate"::date BETWEEN $1::date AND $2::date AND "FromBranchID" = $3), 0) AS "TransferOut"
+         )
+         SELECT
+           ("SALE" - "REFUND") AS "ProductSales",
+           "REFUND" AS "ServiceSales",
+           "DEBITPAID" AS "SaleDebtReceives",
+           "SALERETURN" AS "SaleReturns",
+           "DEBIT" AS "SaleDebts",
+           ("SALE" + "DEBITPAID") AS "TotalSaleRevenue",
+           "PURCHASE" AS "PurchaseStocks",
+           "CREDITPAID" AS "PurchaseCreditPayments",
+           "PRETURN" AS "PurchaseReturnReceives",
+           "PDEBIT" AS "PurchaseReturnDebts",
+           "DEBITRETURN" AS "PurchaseReturnDebtReceives",
+           "CREDIT" AS "PurchaseCredits",
+           "DAMAGE" AS "DamageStocks",
+           ("PRETURN" + "DEBITRETURN") AS "TotalPurchaseIncome",
+           "REFUND" AS "SaleRefunds",
+           ("REFUND" + "SALERETURN" + "DAMAGE") AS "TotalSaleExpenses",
+           ("SALE" + "DEBITPAID" + "PRETURN" + "DEBITRETURN") AS "TotalIncome",
+           ("PURCHASE" + "CREDITPAID") AS "TotalPurchaseExpenses",
+           ("PURCHASE" + "CREDITPAID" + "SALERETURN" + "DAMAGE" + "REFUND" + "EXPENSE") AS "TotalExpenses",
+           ("DEBIT" + "PDEBIT") AS "TotalDebts",
+           "CREDIT" AS "TotalCredits",
+           "EXPENSE" AS "TotalGeneralExpense",
+           "TransferIn" AS "TransferIn",
+           "TransferOut" AS "TransferOut",
+           (("SALE" + "DEBITPAID" + "PRETURN" + "DEBITRETURN") + ("DEBIT" + "PDEBIT") - ("PURCHASE" + "CREDITPAID" + "SALERETURN" + "DAMAGE" + "REFUND" + "EXPENSE") + "CREDIT" + "TransferIn" - "TransferOut") AS "NetEarning"
+         FROM raw`,
+        values: [fromDate, toDate, branchId],
       };
     },
   },
@@ -586,6 +1006,22 @@ const REPORTS = {
   transfer_report_detail: {
     label: "Transfer Report (Detail)",
     category: "Transfers",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "TransferCode", header: "Transfer Code" },
+        { field: "TransferDate", header: "Transfer Date", type: "date" },
+        { field: "FromBranch", header: "From Branch" },
+        { field: "ToBranch", header: "To Branch" },
+        { field: "StockCode", header: "Stock Code" },
+        { field: "StockName", header: "Stock Name" },
+        { field: "Qty", header: "Qty", type: "int" },
+        { field: "Price", header: "Price", type: "number" },
+        { field: "Total", header: "Total Amount", type: "number" },
+        { field: "TransferStatus", header: "Status" },
+      ],
+      totals: [],
+    },
     params: [
       { name: "branchId", type: "branch", required: true },
       { name: "reportType", type: "select", options: ["TransferIn", "TransferOut"], required: true },
@@ -618,6 +1054,17 @@ const REPORTS = {
   transfer_report_summary: {
     label: "Transfer Report (Summary)",
     category: "Transfers",
+    print: {
+      orientation: "portrait",
+      columns: [
+        { field: "StockCode", header: "Stock Code" },
+        { field: "StockName", header: "Stock Name" },
+        { field: "TotalQty", header: "Total Qty", type: "int" },
+        { field: "TotalAmount", header: "Total Amount", type: "number" },
+      ],
+      group: { field: "BranchName", subtotalLabel: "Branch Total", subtotalColumns: ["TotalQty", "TotalAmount"] },
+      totals: [],
+    },
     params: [
       { name: "branchId", type: "branch", required: true },
       { name: "reportType", type: "select", options: ["TransferIn", "TransferOut"], required: true },
@@ -651,7 +1098,7 @@ const REPORTS = {
 };
 
 function list(req, res) {
-  const data = Object.entries(REPORTS).map(([key, r]) => ({ key, label: r.label, category: r.category, params: r.params }));
+  const data = Object.entries(REPORTS).map(([key, r]) => ({ key, label: r.label, category: r.category, params: r.params, print: r.print }));
   res.json({ data });
 }
 
