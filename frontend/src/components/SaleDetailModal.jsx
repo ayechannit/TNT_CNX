@@ -22,7 +22,7 @@ export default function SaleDetailModal({ sale, onClose }) {
           <tbody>
             {sale.items.map((i) => (
               <tr key={i.SaleDtlID}>
-                <td>{i.StockName || i.StockCode}</td>
+                <td>{i.StockCode ? `${i.StockCode}${i.StockName ? "-" + i.StockName : ""}` : (i.StockName || "")}</td>
                 <td className="num">{Number(i.Qty).toLocaleString()}</td>
                 <td className="num">{Number(i.Price).toLocaleString()}</td>
                 <td className="num">{Number(i.Amount).toLocaleString()}</td>

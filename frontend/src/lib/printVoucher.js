@@ -176,7 +176,7 @@ function itemsRowsHtml(items) {
   return items
     .map(
       (i) => `<tr>
-        <td>${i.StockName || i.StockCode}</td>
+        <td>${i.StockCode ? `${i.StockCode}${i.StockName ? "-" + i.StockName : ""}` : (i.StockName || "")}</td>
         <td style="text-align:right">${Number(i.Qty).toLocaleString()}</td>
         <td style="text-align:right">${Number(i.Price).toLocaleString()}</td>
         <td style="text-align:right">${Number(i.Amount).toLocaleString()}</td>
