@@ -87,7 +87,7 @@ async function getById(req, res, next) {
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
     const detailRes = await pool.query(
-      `SELECT d.*, s."StockName" FROM "SaleDtl" d
+      `SELECT d.*, s."StockName", s."StockCode" AS "StockItemCode" FROM "SaleDtl" d
        LEFT JOIN "StockMaster" s ON s."StockID" = d."StockCode"::int
        WHERE d."SaleHDRID" = $1`,
       [req.params.id]
