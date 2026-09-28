@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { can } from "../lib/authStorage";
 import SearchableSelect from "../components/SearchableSelect";
 import ItemFinder from "../components/ItemFinder";
 import PaginationBar from "../components/PaginationBar";
@@ -318,7 +319,7 @@ export default function TransferPage() {
                       ...(historyView === "in" && h.TransferStatus === "Open"
                         ? [{ label: "Receive", icon: <CheckCircleIcon />, onClick: () => handleReceive(h.TransferID) }]
                         : []),
-                      ...(historyView === "out" && h.TransferStatus === "Open"
+                      ...(historyView === "out" && h.TransferStatus === "Open" && can("Delete")
                         ? [{ label: "Delete", icon: <TrashIcon />, onClick: () => handleDelete(h.TransferID), danger: true }]
                         : []),
                     ]}

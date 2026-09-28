@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { can } from "../lib/authStorage";
 import SearchableSelect from "../components/SearchableSelect";
 import ItemFinder from "../components/ItemFinder";
 import PaginationBar from "../components/PaginationBar";
@@ -318,7 +319,9 @@ export default function ReturnPage() {
                   <RowActionsMenu
                     actions={[
                       { label: "View", icon: <EyeIcon />, onClick: () => handleView(h.ReturnID) },
-                      { label: "Delete", icon: <TrashIcon />, onClick: () => handleDelete(h.ReturnID), danger: true },
+                      ...(can("Delete")
+                        ? [{ label: "Delete", icon: <TrashIcon />, onClick: () => handleDelete(h.ReturnID), danger: true }]
+                        : []),
                     ]}
                   />
                 </td>

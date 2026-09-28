@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { can } from "../lib/authStorage";
 import PaginationBar from "../components/PaginationBar";
 import SearchBox from "../components/SearchBox";
 import SaleReturnDetailModal from "../components/SaleReturnDetailModal";
@@ -304,7 +305,9 @@ export default function SaleReturnPage() {
                   <RowActionsMenu
                     actions={[
                       { label: "View", icon: <EyeIcon />, onClick: () => handleView(h.SaleReturnHDRID) },
-                      { label: "Delete", icon: <TrashIcon />, onClick: () => handleDelete(h.SaleReturnHDRID), danger: true },
+                      ...(can("Delete")
+                        ? [{ label: "Delete", icon: <TrashIcon />, onClick: () => handleDelete(h.SaleReturnHDRID), danger: true }]
+                        : []),
                     ]}
                   />
                 </td>

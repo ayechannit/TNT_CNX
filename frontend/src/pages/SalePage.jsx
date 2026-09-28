@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { can } from "../lib/authStorage";
 import SearchableSelect from "../components/SearchableSelect";
 import AsyncSearchableSelect from "../components/AsyncSearchableSelect";
 import ItemFinder from "../components/ItemFinder";
@@ -87,13 +88,14 @@ export default function SalePage() {
     );
   }
 
-  function loadHistory() {
+  function loadHistory(viewOverride) {
+    const view = viewOverride || historyView;
     setHistoryLoading(true);
-    api.listSales({ q: historySearch, page, pageSize, view: historyView, fromDate, toDate }).then((r) => {
+    api.listSales({ q: historySearch, page, pageSize, view, fromDate, toDate }).then((r) => {
       setHistory(r.data);
       setTotalPages(r.totalPages);
       setTotal(r.total);
-      setCounts((c) => ({ ...c, [historyView]: r.total }));
+      setCounts((c) => ({ ...c, [view]: r.total }));
     }).catch((e) => setHistoryError(e.message)).finally(() => setHistoryLoading(false));
   }
 
@@ -307,11 +309,18 @@ export default function SalePage() {
         : await api.createSale(body);
       setMessage(`Sale ${result.saleCode} ${editingSaleId ? "updated" : "saved"} - Total ${result.totalAmount.toLocaleString()}, ${result.status}.`);
       resetForm();
-      loadHistory();
 
-      if (window.confirm(`Sale ${result.saleCode} saved. Do you want to print the voucher?`)) {
-        handlePrint(result.saleId);
-      }
+      // Jump the history list to the filter matching what was just saved:
+      // a fully paid sale (PAID) -> "Paid" tab, one with a balance (LEFTOVER)
+      // -> "Unpaid" tab, so the new voucher is visible in the active filter.
+      const savedView = result.status === "PAID" ? "paid" : "unpaid";
+      setPage(1);
+      setHistoryView(savedView);
+      loadHistory(savedView);
+      loadCounts();
+
+      // Open the print dialog for the voucher that was just saved.
+      handlePrint(result.saleId);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -565,7 +574,9 @@ export default function SalePage() {
                       ...(historyView === "order"
                         ? [{ label: "Mark Delivered", icon: <TruckIcon />, onClick: () => handleDeliver(h.SaleID) }]
                         : []),
-                      { label: "Delete", icon: <TrashIcon />, onClick: () => handleDeleteSale(h.SaleID), danger: true },
+                      ...(can("Delete")
+                        ? [{ label: "Delete", icon: <TrashIcon />, onClick: () => handleDeleteSale(h.SaleID), danger: true }]
+                        : []),
                     ]}
                   />
                 </td>

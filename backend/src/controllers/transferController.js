@@ -6,6 +6,13 @@ async function generateTransferCode(client, branchId, date) {
   const branchRes = await client.query(`SELECT branchno FROM "Branch" WHERE id = $1`, [branchId]);
   const branchNo = branchRes.rows[0]?.branchno || "BR";
 
+  // Serialize code generation for this branch+date so two concurrent saves
+  // can't both read the same COUNT and mint the same code. The lock is held
+  // until this transaction ends (COMMIT or ROLLBACK). Because the tracking-row
+  // INSERT below is part of the same transaction, a rollback also removes it,
+  // so a failed save frees its number instead of leaving a gap.
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1)::bigint)`, [`transfercode:${branchId}:${date}`]);
+
   await client.query(
     `INSERT INTO "TransferNumberGenerator" ("CreatedDate", branchid) VALUES ($1, $2)`,
     [date, branchId]

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { can } from "../lib/authStorage";
 import SearchableSelect from "../components/SearchableSelect";
 import ItemFinder from "../components/ItemFinder";
 import PaginationBar from "../components/PaginationBar";
@@ -414,7 +415,9 @@ export default function PurchasePage() {
                       ...(historyView === "unpaid"
                         ? [{ label: "Mark Paid", icon: <CheckCircleIcon />, onClick: () => handleMarkPaid(h.PurchaseID) }]
                         : []),
-                      { label: "Delete", icon: <TrashIcon />, onClick: () => handleDeletePurchase(h.PurchaseID), danger: true },
+                      ...(can("Delete")
+                        ? [{ label: "Delete", icon: <TrashIcon />, onClick: () => handleDeletePurchase(h.PurchaseID), danger: true }]
+                        : []),
                     ]}
                   />
                 </td>

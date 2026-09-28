@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { can } from "../lib/authStorage";
 import SearchableSelect from "../components/SearchableSelect";
 import PaginationBar from "../components/PaginationBar";
 import SearchBox from "../components/SearchBox";
@@ -225,7 +226,9 @@ export default function ExpensePage() {
                   <RowActionsMenu
                     actions={[
                       { label: "Edit", icon: <EditIcon />, onClick: () => editRow(h) },
-                      { label: "Delete", icon: <TrashIcon />, onClick: () => handleDelete(h.expenseid), danger: true },
+                      ...(can("Delete")
+                        ? [{ label: "Delete", icon: <TrashIcon />, onClick: () => handleDelete(h.expenseid), danger: true }]
+                        : []),
                     ]}
                   />
                 </td>

@@ -1,5 +1,6 @@
 const express = require("express");
 const { list, getById, create, update, markPaid, undoPaid, markDelivered, remove } = require("../controllers/saleController");
+const requirePermission = require("../middleware/requirePermission");
 
 const router = express.Router();
 
@@ -10,6 +11,6 @@ router.put("/:id", update);
 router.post("/:id/mark-paid", markPaid);
 router.post("/:id/undo-paid", undoPaid);
 router.post("/:id/mark-delivered", markDelivered);
-router.delete("/:id", remove);
+router.delete("/:id", requirePermission("Delete"), remove);
 
 module.exports = router;

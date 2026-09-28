@@ -17,24 +17,28 @@ import UserPage from "./pages/UserPage";
 import UserRolePage from "./pages/UserRolePage";
 import LoginPage from "./pages/LoginPage";
 import GlobalLoadingBar from "./components/GlobalLoadingBar";
-import { getToken, getStoredUser, setAuth as persistAuth, clearAuth } from "./lib/authStorage";
+import { getToken, getStoredUser, setAuth as persistAuth, clearAuth, getPermissions } from "./lib/authStorage";
 import tntLogo from "./assets/tnt-logo.png";
 import "./App.css";
 
 // Grouped into categories so the nav scales past a dozen-plus screens
 // without overflowing or hiding items on smaller windows - see each
 // category's tab row rendered below the category row in the header.
+// `perm` lists the UserRole formname(s) that grant a tab; a user sees the tab
+// if they hold ANY of them. Tabs with no `perm` (Category, Supplier, Customer,
+// Expense, Branch, Expense Type) have no assignable permission in this schema,
+// so they are shown only to unrestricted users (see visibleCategoriesFor).
 const CATEGORIES = [
   {
     key: "transactions",
     label: "Transactions",
     tabs: [
-      { key: "sale", label: "Sale", component: SalePage },
-      { key: "purchase", label: "Purchase", component: PurchasePage },
-      { key: "stockAdjustment", label: "Stock Adjustment", component: StockAdjustmentPage },
-      { key: "transfer", label: "Transfer", component: TransferPage },
-      { key: "return", label: "Return", component: ReturnPage },
-      { key: "saleReturn", label: "Sale Return", component: SaleReturnPage },
+      { key: "sale", label: "Sale", component: SalePage, perm: ["FrmSale", "FrmSaleList"] },
+      { key: "purchase", label: "Purchase", component: PurchasePage, perm: ["FrmPurchase", "FrmPurchaseList"] },
+      { key: "stockAdjustment", label: "Stock Adjustment", component: StockAdjustmentPage, perm: ["FrmStockAdjust"] },
+      { key: "transfer", label: "Transfer", component: TransferPage, perm: ["FrmTransfer", "FrmTransferList"] },
+      { key: "return", label: "Return", component: ReturnPage, perm: ["FrmReturn", "FrmReturnList"] },
+      { key: "saleReturn", label: "Sale Return", component: SaleReturnPage, perm: ["FrmSaleReturn", "FrmSaleReturnList"] },
       { key: "expense", label: "Expense", component: ExpensePage },
     ],
   },
@@ -42,7 +46,7 @@ const CATEGORIES = [
     key: "inventory",
     label: "Inventory",
     tabs: [
-      { key: "stock", label: "Stock", component: StockPage },
+      { key: "stock", label: "Stock", component: StockPage, perm: ["FrmStock", "FrmStockBalance"] },
       { key: "category", label: "Category", component: CategoryPage },
       { key: "supplier", label: "Supplier", component: SupplierPage },
     ],
@@ -52,8 +56,8 @@ const CATEGORIES = [
     label: "People",
     tabs: [
       { key: "customer", label: "Customer", component: CustomerPage },
-      { key: "user", label: "Users", component: UserPage },
-      { key: "userRole", label: "User Roles", component: UserRolePage },
+      { key: "user", label: "Users", component: UserPage, perm: ["FrmUser"] },
+      { key: "userRole", label: "User Roles", component: UserRolePage, perm: ["FrmUserRole"] },
     ],
   },
   {
@@ -68,12 +72,31 @@ const CATEGORIES = [
     key: "reports",
     label: "Reports",
     tabs: [
-      { key: "reports", label: "Reports", component: ReportsPage },
+      { key: "reports", label: "Reports", component: ReportsPage, perm: ["FrmReport", "FrmSaleReport", "FrmPurchaseReport"] },
     ],
   },
 ];
 
 const ALL_TABS = CATEGORIES.flatMap((c) => c.tabs);
+
+// Every formname that gates a screen. A user who holds none of these is treated
+// as unrestricted (full access) - this is how the legacy "admin" account, which
+// has zero UserRole rows, keeps seeing everything.
+const ALL_SCREEN_PERMS = new Set(ALL_TABS.flatMap((t) => t.perm || []));
+
+// Categories (and their tabs) the given permission list may see. Unrestricted
+// users see all tabs; restricted users see only tabs whose `perm` they hold.
+// Empty categories are dropped so no bare category button is left behind.
+function visibleCategoriesFor(permissions) {
+  const held = new Set(permissions || []);
+  const unrestricted = ![...ALL_SCREEN_PERMS].some((p) => held.has(p));
+  return CATEGORIES.map((cat) => ({
+    ...cat,
+    tabs: cat.tabs.filter(
+      (t) => unrestricted || (t.perm && t.perm.some((p) => held.has(p)))
+    ),
+  })).filter((cat) => cat.tabs.length > 0);
+}
 const DEFAULT_TAB = "sale"; // the screen used all day, every day - not an admin/setup screen
 const LAST_TAB_KEY = "mpos-last-tab";
 
@@ -112,8 +135,18 @@ function App() {
     return () => window.removeEventListener("mpos-auth-expired", onAuthExpired);
   }, []);
 
+  // If the active tab isn't one this user is allowed to see (e.g. a restricted
+  // user whose last-used tab was an admin screen), snap to their first visible
+  // tab so they never land on a hidden screen.
+  useEffect(() => {
+    const visibleTabs = visibleCategoriesFor(getPermissions()).flatMap((c) => c.tabs);
+    if (visibleTabs.length && !visibleTabs.some((t) => t.key === activeTab)) {
+      setActiveTab(visibleTabs[0].key);
+    }
+  }, [currentUser, activeTab]);
+
   function handleLogin(result) {
-    persistAuth(result.token, result.user);
+    persistAuth(result.token, result.user, result.formNames);
     setCurrentUser(result.user);
   }
 
@@ -131,11 +164,13 @@ function App() {
     );
   }
 
-  const activeCategory = CATEGORIES.find((c) => c.tabs.some((t) => t.key === activeTab)) || CATEGORIES[0];
-  const ActiveComponent = ALL_TABS.find((t) => t.key === activeTab)?.component || StockPage;
+  const visibleCategories = visibleCategoriesFor(getPermissions());
+  const allVisibleTabs = visibleCategories.flatMap((c) => c.tabs);
+  const activeCategory = visibleCategories.find((c) => c.tabs.some((t) => t.key === activeTab)) || visibleCategories[0];
+  const ActiveComponent = allVisibleTabs.find((t) => t.key === activeTab)?.component || allVisibleTabs[0]?.component || StockPage;
 
   function selectCategory(categoryKey) {
-    const cat = CATEGORIES.find((c) => c.key === categoryKey);
+    const cat = visibleCategories.find((c) => c.key === categoryKey);
     if (cat) setActiveTab(cat.tabs[0].key);
   }
 
@@ -164,7 +199,7 @@ function App() {
         </button>
         <nav className={`app-nav-wrap ${menuOpen ? "open" : ""}`}>
           <div className="app-nav-categories">
-            {CATEGORIES.map((c) => (
+            {visibleCategories.map((c) => (
               <button
                 key={c.key}
                 className={activeCategory.key === c.key ? "active" : ""}
