@@ -37,11 +37,35 @@ export function getPermissions() {
   }
 }
 
-// Whether the current user holds a permission (a formname from UserRole).
+// Every formname that gates a screen. Kept in sync with the backend's
+// SCREEN_PERMS (middleware/requireScreen.js) and App.jsx's ALL_SCREEN_PERMS.
+const SCREEN_PERMS = [
+  "FrmSale", "FrmSaleList",
+  "FrmPurchase", "FrmPurchaseList",
+  "FrmStockAdjust",
+  "FrmTransfer", "FrmTransferList",
+  "FrmReturn", "FrmReturnList",
+  "FrmSaleReturn", "FrmSaleReturnList",
+  "FrmStock", "FrmStockBalance",
+  "FrmUser", "FrmUserRole",
+  "FrmReport", "FrmSaleReport", "FrmPurchaseReport",
+];
+
+// A superuser can do everything: the "admin" account (by username), and any
+// account with no screen permissions at all (legacy "unrestricted = full
+// access"). Mirrors the backend's isSuperuser.
+export function isSuperuser() {
+  const user = getStoredUser();
+  if (user && String(user.userName || "").toLowerCase() === "admin") return true;
+  const perms = getPermissions();
+  return !SCREEN_PERMS.some((p) => perms.includes(p));
+}
+
+// Whether the current user may perform an action (a formname from UserRole).
 // UI-only convenience for hiding actions; the backend independently enforces
 // the same check, so a tampered client still can't perform the action.
 export function can(permission) {
-  return getPermissions().includes(permission);
+  return isSuperuser() || getPermissions().includes(permission);
 }
 
 export function clearAuth() {

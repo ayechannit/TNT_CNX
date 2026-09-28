@@ -17,7 +17,7 @@ import UserPage from "./pages/UserPage";
 import UserRolePage from "./pages/UserRolePage";
 import LoginPage from "./pages/LoginPage";
 import GlobalLoadingBar from "./components/GlobalLoadingBar";
-import { getToken, getStoredUser, setAuth as persistAuth, clearAuth, getPermissions } from "./lib/authStorage";
+import { getToken, getStoredUser, setAuth as persistAuth, clearAuth, getPermissions, isSuperuser } from "./lib/authStorage";
 import tntLogo from "./assets/tnt-logo.png";
 import "./App.css";
 
@@ -89,7 +89,7 @@ const ALL_SCREEN_PERMS = new Set(ALL_TABS.flatMap((t) => t.perm || []));
 // Empty categories are dropped so no bare category button is left behind.
 function visibleCategoriesFor(permissions) {
   const held = new Set(permissions || []);
-  const unrestricted = ![...ALL_SCREEN_PERMS].some((p) => held.has(p));
+  const unrestricted = isSuperuser() || ![...ALL_SCREEN_PERMS].some((p) => held.has(p));
   return CATEGORIES.map((cat) => ({
     ...cat,
     tabs: cat.tabs.filter(

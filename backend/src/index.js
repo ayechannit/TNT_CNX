@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const pool = require("./db/pool");
 const requireAuth = require("./middleware/requireAuth");
+const requireScreen = require("./middleware/requireScreen");
 const authRoutes = require("./routes/auth");
 const stockRoutes = require("./routes/stock");
 const categoryRoutes = require("./routes/category");
@@ -37,22 +38,28 @@ app.get("/api/health", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api", requireAuth);
 
+// Shared lookups (read by many screens regardless of menu access) stay open to
+// any authenticated user - gating them would break the transaction screens.
 app.use("/api/stock", stockRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/branches", branchRoutes);
 app.use("/api/expense-types", expenseTypeRoutes);
-app.use("/api/expenses", expenseRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/user-roles", userRoleRoutes);
-app.use("/api/sales", saleRoutes);
-app.use("/api/purchases", purchaseRoutes);
-app.use("/api/stock-adjustments", stockAdjustmentRoutes);
-app.use("/api/transfers", transferRoutes);
-app.use("/api/returns", returnRoutes);
-app.use("/api/sale-returns", saleReturnRoutes);
-app.use("/api/reports", reportsRoutes);
+
+// Screen/management routes - gated to users who hold the screen's permission
+// (or unrestricted users). Mirrors the frontend nav gating. Expense has no
+// assignable permission in this schema, so it is unrestricted-only.
+app.use("/api/expenses", requireScreen([]), expenseRoutes);
+app.use("/api/users", requireScreen(["FrmUser"]), userRoutes);
+app.use("/api/user-roles", requireScreen(["FrmUserRole"]), userRoleRoutes);
+app.use("/api/sales", requireScreen(["FrmSale", "FrmSaleList"]), saleRoutes);
+app.use("/api/purchases", requireScreen(["FrmPurchase", "FrmPurchaseList"]), purchaseRoutes);
+app.use("/api/stock-adjustments", requireScreen(["FrmStockAdjust"]), stockAdjustmentRoutes);
+app.use("/api/transfers", requireScreen(["FrmTransfer", "FrmTransferList"]), transferRoutes);
+app.use("/api/returns", requireScreen(["FrmReturn", "FrmReturnList"]), returnRoutes);
+app.use("/api/sale-returns", requireScreen(["FrmSaleReturn", "FrmSaleReturnList"]), saleReturnRoutes);
+app.use("/api/reports", requireScreen(["FrmReport", "FrmSaleReport", "FrmPurchaseReport"]), reportsRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
