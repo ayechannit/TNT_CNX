@@ -49,6 +49,8 @@ const SCREEN_PERMS = [
   "FrmStock", "FrmStockBalance",
   "FrmUser", "FrmUserRole",
   "FrmReport", "FrmSaleReport", "FrmPurchaseReport",
+  "FrmExpense", "FrmExpenseType",
+  "FrmCategory", "FrmSupplier", "FrmCustomer", "FrmBranch",
 ];
 
 // A superuser can do everything: the "admin" account (by username), and any

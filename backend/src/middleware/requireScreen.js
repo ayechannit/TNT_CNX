@@ -14,6 +14,8 @@ const SCREEN_PERMS = new Set([
   "FrmStock", "FrmStockBalance",
   "FrmUser", "FrmUserRole",
   "FrmReport", "FrmSaleReport", "FrmPurchaseReport",
+  "FrmExpense", "FrmExpenseType",
+  "FrmCategory", "FrmSupplier", "FrmCustomer", "FrmBranch",
 ]);
 
 // A superuser bypasses every permission check and can do everything:
@@ -33,8 +35,8 @@ function isSuperuser(user, held) {
 // after requireAuth.
 //
 // Mirrors the frontend nav gating so the menu and the API agree. Pass an empty
-// array for a screen that has no assignable permission in this schema (e.g.
-// Expense) - then only superusers may reach it.
+// array for a screen that has no assignable permission - then only superusers
+// may reach it.
 //
 // NOTE: shared lookup endpoints (branches, customers, suppliers, categories,
 // stock) are intentionally NOT gated - transaction screens read them even when
@@ -62,6 +64,22 @@ function requireScreen(allowed = []) {
   };
 }
 
+// Like requireScreen, but only for writes: GET requests always pass. Used for
+// the shared lookup endpoints (categories, suppliers, customers, branches,
+// expense types), whose reads must stay open for the transaction screens but
+// whose create/edit/delete belongs to the lookup's own screen. `openMethods`
+// lists extra methods left ungated (e.g. POST on customers, which the Sale
+// screen's "add customer" modal uses).
+function requireScreenForWrites(allowed = [], openMethods = []) {
+  const gate = requireScreen(allowed);
+  const open = new Set(["GET", "HEAD", "OPTIONS", ...openMethods]);
+  return function (req, res, next) {
+    if (open.has(req.method)) return next();
+    return gate(req, res, next);
+  };
+}
+
 module.exports = requireScreen;
+module.exports.requireScreenForWrites = requireScreenForWrites;
 module.exports.SCREEN_PERMS = SCREEN_PERMS;
 module.exports.isSuperuser = isSuperuser;

@@ -4,6 +4,7 @@ const cors = require("cors");
 const pool = require("./db/pool");
 const requireAuth = require("./middleware/requireAuth");
 const requireScreen = require("./middleware/requireScreen");
+const { requireScreenForWrites } = requireScreen;
 const authRoutes = require("./routes/auth");
 const stockRoutes = require("./routes/stock");
 const categoryRoutes = require("./routes/category");
@@ -38,19 +39,20 @@ app.get("/api/health", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api", requireAuth);
 
-// Shared lookups (read by many screens regardless of menu access) stay open to
-// any authenticated user - gating them would break the transaction screens.
+// Shared lookups (read by many screens regardless of menu access): reads stay
+// open to any authenticated user - gating them would break the transaction
+// screens - but create/edit/delete needs the lookup's own screen permission.
+// Customer creation stays open because the Sale screen adds customers inline.
 app.use("/api/stock", stockRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/suppliers", supplierRoutes);
-app.use("/api/customers", customerRoutes);
-app.use("/api/branches", branchRoutes);
-app.use("/api/expense-types", expenseTypeRoutes);
+app.use("/api/categories", requireScreenForWrites(["FrmCategory"]), categoryRoutes);
+app.use("/api/suppliers", requireScreenForWrites(["FrmSupplier"]), supplierRoutes);
+app.use("/api/customers", requireScreenForWrites(["FrmCustomer"], ["POST"]), customerRoutes);
+app.use("/api/branches", requireScreenForWrites(["FrmBranch"]), branchRoutes);
+app.use("/api/expense-types", requireScreenForWrites(["FrmExpenseType"]), expenseTypeRoutes);
 
 // Screen/management routes - gated to users who hold the screen's permission
-// (or unrestricted users). Mirrors the frontend nav gating. Expense has no
-// assignable permission in this schema, so it is unrestricted-only.
-app.use("/api/expenses", requireScreen([]), expenseRoutes);
+// (or unrestricted users). Mirrors the frontend nav gating.
+app.use("/api/expenses", requireScreen(["FrmExpense"]), expenseRoutes);
 app.use("/api/users", requireScreen(["FrmUser"]), userRoutes);
 app.use("/api/user-roles", requireScreen(["FrmUserRole"]), userRoleRoutes);
 app.use("/api/sales", requireScreen(["FrmSale", "FrmSaleList"]), saleRoutes);

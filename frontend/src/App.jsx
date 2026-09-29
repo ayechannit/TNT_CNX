@@ -25,9 +25,8 @@ import "./App.css";
 // without overflowing or hiding items on smaller windows - see each
 // category's tab row rendered below the category row in the header.
 // `perm` lists the UserRole formname(s) that grant a tab; a user sees the tab
-// if they hold ANY of them. Tabs with no `perm` (Category, Supplier, Customer,
-// Expense, Branch, Expense Type) have no assignable permission in this schema,
-// so they are shown only to unrestricted users (see visibleCategoriesFor).
+// if they hold ANY of them. Unrestricted users see every tab (see
+// visibleCategoriesFor).
 const CATEGORIES = [
   {
     key: "transactions",
@@ -39,7 +38,7 @@ const CATEGORIES = [
       { key: "transfer", label: "Transfer", component: TransferPage, perm: ["FrmTransfer", "FrmTransferList"] },
       { key: "return", label: "Return", component: ReturnPage, perm: ["FrmReturn", "FrmReturnList"] },
       { key: "saleReturn", label: "Sale Return", component: SaleReturnPage, perm: ["FrmSaleReturn", "FrmSaleReturnList"] },
-      { key: "expense", label: "Expense", component: ExpensePage },
+      { key: "expense", label: "Expense", component: ExpensePage, perm: ["FrmExpense"] },
     ],
   },
   {
@@ -47,15 +46,15 @@ const CATEGORIES = [
     label: "Inventory",
     tabs: [
       { key: "stock", label: "Stock", component: StockPage, perm: ["FrmStock", "FrmStockBalance"] },
-      { key: "category", label: "Category", component: CategoryPage },
-      { key: "supplier", label: "Supplier", component: SupplierPage },
+      { key: "category", label: "Category", component: CategoryPage, perm: ["FrmCategory"] },
+      { key: "supplier", label: "Supplier", component: SupplierPage, perm: ["FrmSupplier"] },
     ],
   },
   {
     key: "people",
     label: "People",
     tabs: [
-      { key: "customer", label: "Customer", component: CustomerPage },
+      { key: "customer", label: "Customer", component: CustomerPage, perm: ["FrmCustomer"] },
       { key: "user", label: "Users", component: UserPage, perm: ["FrmUser"] },
       { key: "userRole", label: "User Roles", component: UserRolePage, perm: ["FrmUserRole"] },
     ],
@@ -64,8 +63,8 @@ const CATEGORIES = [
     key: "setup",
     label: "Setup",
     tabs: [
-      { key: "branch", label: "Branch", component: BranchPage },
-      { key: "expenseType", label: "Expense Type", component: ExpenseTypePage },
+      { key: "branch", label: "Branch", component: BranchPage, perm: ["FrmBranch"] },
+      { key: "expenseType", label: "Expense Type", component: ExpenseTypePage, perm: ["FrmExpenseType"] },
     ],
   },
   {
