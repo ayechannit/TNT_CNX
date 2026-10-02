@@ -573,16 +573,16 @@ const REPORTS = {
       ],
       totals: ["TotalAmount", "Paid", "LeftOver"],
     },
-    params: [{ name: "branchId", type: "branch", required: true }, { name: "supplierId", type: "supplier", required: false }],
+    params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }, { name: "supplierId", type: "supplier", required: false }],
     build(q) {
       const supplierId = opt(q, "supplierId", "");
       return {
         text: `SELECT h."PurchaseCode", h."PurchaseDate", s."SupplierName", h."Discount", h."Tax", h."TotalAmount", h."Paid", h."LeftOver", h."Note"
          FROM "PurchaseHdr" h JOIN "SupplierMaster" s ON h."SupplierID" = s."SupplierID"
-         WHERE h."Status" = 'LEFTOVER' AND h."BranchID" = $1
-           AND ($2 = '' OR h."SupplierID"::text = $2)
+         WHERE h."Status" = 'LEFTOVER' AND h."PurchaseDate"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3
+           AND ($4 = '' OR h."SupplierID"::text = $4)
          ORDER BY h."PurchaseDate" LIMIT ${ROW_LIMIT}`,
-        values: [need(q, "branchId"), supplierId],
+        values: [need(q, "fromDate"), need(q, "toDate"), need(q, "branchId"), supplierId],
       };
     },
   },
