@@ -824,7 +824,7 @@ const REPORTS = {
                 e.description AS "Description", e.amount AS "Amount", e.createuser AS "CreatedBy"
          FROM "Expense" e LEFT JOIN "ExpenseType" et ON e.expensetypeid = et.expensetypeid
          LEFT JOIN "Branch" b ON e.branchid = b.id
-         WHERE e.expensedate::date BETWEEN $1::date AND $2::date
+         WHERE e.expensedate::date BETWEEN $1::date AND $2::date AND e.status != 'delete'
            AND ($3::int IS NULL OR e.branchid = $3::int)
          ORDER BY e.expensedate LIMIT ${ROW_LIMIT}`,
         values: [need(q, "fromDate"), need(q, "toDate"), branchId],
