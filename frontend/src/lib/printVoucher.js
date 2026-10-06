@@ -242,13 +242,13 @@ const pad2 = (n) => String(n).padStart(2, "0");
 
 // "YYYY-MM-DD..." -> "DD/MM/YYYY" (string-based: these are wall-clock
 // timestamps without a timezone, see db/pool.js)
-function fmtDate(v) {
+export function fmtDate(v) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || "");
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
 }
 
 // "YYYY-MM-DD HH:MM" -> "HH:MM" (24h) or "hh:mm AM" (12h)
-function fmtTime(v, twelveHour = false) {
+export function fmtTime(v, twelveHour = false) {
   const m = /[T ](\d{2}):(\d{2})/.exec(v || "");
   if (!m) return "";
   if (!twelveHour) return `${m[1]}:${m[2]}`;
