@@ -86,7 +86,7 @@ async function list(req, res, next) {
 async function getById(req, res, next) {
   try {
     const { rows } = await pool.query(
-      `SELECT h.*, p."PatientName" FROM "SaleHdr" h
+      `SELECT h.*, p."PatientName", p."Age", p."PhoneNo", p."memberID" FROM "SaleHdr" h
        LEFT JOIN "PatientMaster" p ON h."PatientID" = p."PatientID"
        WHERE h."SaleID" = $1`,
       [req.params.id]
@@ -125,7 +125,7 @@ async function create(req, res, next) {
     await client.query("BEGIN");
 
     const saleDate = body.saleDate || new Date().toISOString().slice(0, 10);
-    const user = body.user || "web";
+    const user = (req.user && req.user.userName) || body.user || "web";
     const discount = Number(body.discount) || 0;
     const tax = Number(body.tax) || 0;
     const itemsTotal = body.items.reduce((sum, it) => sum + Number(it.qty) * Number(it.price), 0);
@@ -210,7 +210,7 @@ async function markPaid(req, res, next) {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const user = req.body.user || "web";
+    const user = (req.user && req.user.userName) || req.body.user || "web";
     await client.query("BEGIN");
 
     const saleRes = await client.query(`SELECT "SaleCode","LeftOver","TotalAmount","Status","BranchID" FROM "SaleHdr" WHERE "SaleID" = $1`, [id]);
@@ -361,7 +361,7 @@ async function update(req, res, next) {
     await client.query(`DELETE FROM "Payment" WHERE code = $1`, [existing.SaleCode]);
 
     const saleDate = body.saleDate || new Date().toISOString().slice(0, 10);
-    const user = body.user || "web";
+    const user = (req.user && req.user.userName) || body.user || "web";
     const discount = Number(body.discount) || 0;
     const tax = Number(body.tax) || 0;
     const itemsTotal = body.items.reduce((sum, it) => sum + Number(it.qty) * Number(it.price), 0);

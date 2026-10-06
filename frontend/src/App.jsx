@@ -17,7 +17,8 @@ import UserPage from "./pages/UserPage";
 import UserRolePage from "./pages/UserRolePage";
 import LoginPage from "./pages/LoginPage";
 import GlobalLoadingBar from "./components/GlobalLoadingBar";
-import { getToken, getStoredUser, setAuth as persistAuth, clearAuth, getPermissions, isSuperuser } from "./lib/authStorage";
+import { getToken, getStoredUser, setAuth as persistAuth, clearAuth, getPermissions, setPermissions, isSuperuser } from "./lib/authStorage";
+import { api } from "./api/client";
 import tntLogo from "./assets/tnt-logo.png";
 import "./App.css";
 
@@ -117,6 +118,7 @@ function App() {
     const user = getStoredUser();
     return token && user ? user : null;
   });
+  const [, setPermsVersion] = useState(0);
 
   useEffect(() => {
     try {
@@ -133,6 +135,32 @@ function App() {
     window.addEventListener("mpos-auth-expired", onAuthExpired);
     return () => window.removeEventListener("mpos-auth-expired", onAuthExpired);
   }, []);
+
+  // Permissions are cached at login; re-read them from the server on load and
+  // whenever the window regains focus, so unchecking a permission in User
+  // Roles takes effect without the user having to log out and back in.
+  useEffect(() => {
+    if (!currentUser) return;
+    let cancelled = false;
+    function refresh() {
+      api
+        .getMe()
+        .then((r) => {
+          if (cancelled || !Array.isArray(r.formNames)) return;
+          setPermissions(r.formNames);
+          setPermsVersion((v) => v + 1);
+        })
+        .catch(() => {
+          // offline / transient - keep the cached permissions
+        });
+    }
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refresh);
+    };
+  }, [currentUser]);
 
   // If the active tab isn't one this user is allowed to see (e.g. a restricted
   // user whose last-used tab was an admin screen), snap to their first visible

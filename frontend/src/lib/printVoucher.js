@@ -21,6 +21,16 @@ const BASE = {
   opticMarginTop: 8,
   optic: 8.5,
   opticPad: [2, 4],
+  // sale voucher (optic slip) layout
+  slipInfo: 9.5,
+  slipInfoRowPad: 2,
+  slipGap: 6,
+  slipRx: 9.5,
+  slipRxPad: [3, 5],
+  slipItem: 9,
+  slipItemPad: [2, 4],
+  slipSum: 9.5,
+  slipSumPad: [2, 5],
 };
 
 // A5 page with a real 5mm margin, not 0 - printers can't physically mark
@@ -77,6 +87,33 @@ function voucherStylesCss(scale = 1) {
     .totals .grand { font-weight: 700; font-size: ${px(BASE.totalsGrand)}; border-top: 1px solid #333; margin-top: ${px(BASE.totalsGrandMarginTop)}; padding-top: ${px(BASE.totalsGrandPadTop)}; }
     .optic-box { margin-top: ${px(BASE.opticMarginTop)}; font-size: ${px(BASE.optic)}; }
     .optic-box table td { font-size: ${px(BASE.optic)}; padding: ${px(BASE.opticPad[0])} ${px(BASE.opticPad[1])}; }
+
+    /* Sale voucher - laid out like the legacy R_OpticSlip report. */
+    .slip-info { width: 100%; margin-bottom: ${px(BASE.slipGap)}; border-bottom: 1.5px solid #222; }
+    .slip-info td { border: 0; padding: ${px(BASE.slipInfoRowPad)} ${px(BASE.cellPad[1])}; font-size: ${px(BASE.slipInfo)}; vertical-align: top; }
+    .slip-info .lbl { color: #555; white-space: nowrap; width: 1%; text-align: right; font-family: Georgia, 'Times New Roman', serif; }
+    .slip-rx { display: flex; gap: ${px(BASE.slipGap * 2)}; margin-bottom: ${px(BASE.slipGap)}; }
+    .slip-rx table { margin: 0; flex: 1; }
+    .slip-rx th, .slip-rx td { border: 1px solid #222; font-size: ${px(BASE.slipRx)}; padding: ${px(BASE.slipRxPad[0])} ${px(BASE.slipRxPad[1])}; text-align: center; text-transform: none; color: #1a1a1a; }
+    .slip-rx th { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; }
+    .slip-rx td.rx-lbl { text-align: left; font-family: Georgia, 'Times New Roman', serif; font-weight: 700; }
+    .slip-rx .blank { border: 0; }
+    .slip-items { margin-bottom: 0; }
+    .slip-items th, .slip-items td { border: 1px solid #222; border-top: 0; border-bottom: 0; font-size: ${px(BASE.slipItem)}; padding: ${px(BASE.slipItemPad[0])} ${px(BASE.slipItemPad[1])}; vertical-align: top; }
+    .slip-items thead th { border: 1px solid #222; text-align: center; text-transform: none; color: #1a1a1a; font-family: Georgia, 'Times New Roman', serif; }
+    .slip-items tbody tr:last-child td { border-bottom: 1px solid #222; }
+    .slip-items .c { text-align: center; }
+    .slip-items .r { text-align: right; }
+    .slip-bottom { display: flex; gap: ${px(BASE.slipGap * 2)}; margin-top: ${px(BASE.slipGap)}; }
+    .slip-notes { flex: 1; font-size: ${px(BASE.slipInfo)}; }
+    .slip-notes .lbl { color: #555; }
+    .slip-notes > div { margin-bottom: ${px(BASE.slipGap)}; }
+    .slip-notes .remark { padding-left: ${px(BASE.slipGap * 3)}; white-space: pre-wrap; }
+    .slip-sum { width: 52%; margin: 0; border-collapse: separate; border-spacing: 0 ${px(2)}; }
+    .slip-sum td { border: 1px solid #222; font-size: ${px(BASE.slipSum)}; padding: ${px(BASE.slipSumPad[0])} ${px(BASE.slipSumPad[1])}; }
+    .slip-sum td:first-child { text-align: right; font-weight: 700; font-family: Georgia, 'Times New Roman', serif; border-right: 0; width: 55%; }
+    .slip-sum td:last-child { text-align: right; }
+    .slip-sum tr.net td { font-size: ${px(BASE.slipSum * 1.1)}; }
   `;
 }
 
@@ -197,33 +234,101 @@ function totalsHtml(record) {
   `;
 }
 
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// "YYYY-MM-DD..." -> "DD/MM/YYYY" (string-based: these are wall-clock
+// timestamps without a timezone, see db/pool.js)
+function fmtDate(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || "");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+
+// "YYYY-MM-DD HH:MM" -> "HH:MM" (24h) or "hh:mm AM" (12h)
+function fmtTime(v, twelveHour = false) {
+  const m = /[T ](\d{2}):(\d{2})/.exec(v || "");
+  if (!m) return "";
+  if (!twelveHour) return `${m[1]}:${m[2]}`;
+  const h = Number(m[1]);
+  return `${pad2(h % 12 || 12)}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+}
+
+const money = (n) => Number(n || 0).toLocaleString();
+
+// Laid out like the legacy R_OpticSlip report - only the information area;
+// the header/footer come from the voucher background.
 export function printSaleVoucher(sale) {
-  const opticHtml = sale.optic
-    ? `<div class="optic-box">
+  const o = sale.optic || {};
+  const items = sale.items || [];
+  const gross = items.reduce((sum, i) => sum + Number(i.Amount || 0), 0);
+  // SaleDate is usually stored date-only, so take the time of day from CreateDate.
+  const ownTime = fmtTime(sale.SaleDate);
+  const saleTime = ownTime && ownTime !== "00:00" ? ownTime : fmtTime(sale.CreateDate);
+  const ageText = String(sale.Age ?? "").trim();
+  const age = /^\d+$/.test(ageText) ? `${ageText}yrs` : ageText;
+  const delivery = o.deliverydate ? `${fmtDate(o.deliverydate)} ${fmtTime(o.deliverydate, true)}` : "";
+  const soldBy = sale.CreateUser && sale.CreateUser !== "web" ? sale.CreateUser : "";
+
+  const rxRow = (label, od, os) =>
+    `<tr><td class="rx-lbl">${label}</td><td>${esc(od)}</td><td>${esc(os)}</td></tr>`;
+
+  const rxHtml = sale.optic
+    ? `<div class="slip-rx">
         <table>
-          <tr><td><b>Sphere OD/OS</b></td><td>${sale.optic.sphereod || "-"} / ${sale.optic.sphereos || "-"}</td>
-              <td><b>Cylinder OD/OS</b></td><td>${sale.optic.cylinderod || "-"} / ${sale.optic.cylinderos || "-"}</td></tr>
-          <tr><td><b>Axis OD/OS</b></td><td>${sale.optic.axisod || "-"} / ${sale.optic.axisos || "-"}</td>
-              <td><b>Prism OD/OS</b></td><td>${sale.optic.prismod || "-"} / ${sale.optic.prismos || "-"}</td></tr>
-          <tr><td><b>PD</b></td><td>${sale.optic.pdmm || "-"}</td>
-              <td><b>Delivery</b></td><td>${sale.optic.deliverydate || "-"}</td></tr>
+          <thead><tr><th class="blank"></th><th>OD Right</th><th>OS Left</th></tr></thead>
+          <tbody>${rxRow("Sphere", o.sphereod, o.sphereos)}${rxRow("Cylinder", o.cylinderod, o.cylinderos)}</tbody>
+        </table>
+        <table>
+          <thead><tr><th class="blank"></th><th>OD Right</th><th>OS Left</th></tr></thead>
+          <tbody>${rxRow("Axis", o.axisod, o.axisos)}${rxRow("Prism", o.prismod, o.prismos)}</tbody>
         </table>
       </div>`
     : "";
 
+  const itemRows = items
+    .map((i, idx) => {
+      const name = i.StockItemCode ? `${i.StockItemCode}${i.StockName ? " - " + i.StockName : ""}` : (i.StockName || i.StockCode);
+      const foc = Number(i.Amount || 0) === 0;
+      return `<tr>
+        <td class="c">${idx + 1}</td>
+        <td>${esc(name)}</td>
+        <td class="c">${money(i.Qty)}</td>
+        <td class="r">${foc ? "FOC" : money(i.Price)}</td>
+        <td class="r">${foc ? "FOC" : money(i.Amount)}</td>
+      </tr>`;
+    })
+    .join("");
+
   const body = `
-    <div class="voucher-title">Voucher: ${sale.SaleCode}</div>
-    <div class="voucher-meta">
-      Date: <b>${(sale.SaleDate || "").slice(0, 10)}</b> &nbsp; | &nbsp;
-      Customer: <b>${sale.PatientName || "-"}</b> &nbsp; | &nbsp;
-      Status: <b>${sale.Status}</b>
-    </div>
-    <table>
-      <thead><tr><th>Item</th><th style="text-align:right">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Amount</th></tr></thead>
-      <tbody>${itemsRowsHtml(sale.items)}</tbody>
+    <table class="slip-info">
+      <tr><td class="lbl">No:</td><td>${esc(sale.SaleCode)}</td><td class="lbl">Date:</td><td>${fmtDate(sale.SaleDate)} ${saleTime}</td></tr>
+      <tr><td class="lbl">Name:</td><td>${esc(sale.PatientName)}</td><td class="lbl">Member ID:</td><td>${esc(o.memberid || sale.memberID)}</td></tr>
+      <tr><td class="lbl">Age:</td><td>${esc(age)}</td><td class="lbl">Address:</td><td>${esc(sale.PhoneNo)}</td></tr>
     </table>
-    ${totalsHtml(sale)}
-    ${opticHtml}
+    ${rxHtml}
+    <table class="slip-items">
+      <thead><tr><th style="width:6%">No</th><th>Item Name</th><th style="width:9%">Qty</th><th style="width:16%">Each</th><th style="width:18%">Total</th></tr></thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+    <div class="slip-bottom">
+      <div class="slip-notes">
+        <div><span class="lbl">Delivery Date :</span> &nbsp; ${delivery}</div>
+        <div><span class="lbl">Remark :</span><div class="remark">${esc(sale.Note)}</div></div>
+        ${o.pdmm ? `<div><span class="lbl">PD :</span> &nbsp; ${esc(o.pdmm)}</div>` : ""}
+        <div><span class="lbl">Sold By :</span> &nbsp; ${esc(soldBy)}</div>
+      </div>
+      <table class="slip-sum">
+        <tr><td>Total Amount:</td><td>${money(gross)}</td></tr>
+        <tr><td>Discount:</td><td>${money(sale.Discount)}</td></tr>
+        <tr><td>Tax:</td><td>${money(sale.Tax)}</td></tr>
+        <tr class="net"><td>Net Amount:</td><td>${money(sale.TotalAmount)}</td></tr>
+        <tr class="net"><td>Paid Amount:</td><td>${money(sale.Paid)}</td></tr>
+        <tr><td>Balance Amount:</td><td>${money(sale.LeftOver)}</td></tr>
+      </table>
+    </div>
   `;
   openVoucherWindow(sale.SaleCode, body);
 }

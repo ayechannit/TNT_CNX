@@ -28,6 +28,14 @@ export function setAuth(token, user, permissions = []) {
   }
 }
 
+export function setPermissions(permissions = []) {
+  try {
+    localStorage.setItem(PERMS_KEY, JSON.stringify(permissions || []));
+  } catch {
+    // ignore
+  }
+}
+
 export function getPermissions() {
   try {
     const parsed = JSON.parse(localStorage.getItem(PERMS_KEY) || "[]");

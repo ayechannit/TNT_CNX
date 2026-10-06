@@ -63,4 +63,18 @@ async function login(req, res, next) {
   }
 }
 
-module.exports = { login };
+// Returns the current user's permissions straight from the database, so the
+// client can pick up permission changes without the user logging out and in.
+async function me(req, res, next) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT formname FROM "UserRole" WHERE userid = $1`,
+      [req.user.userId]
+    );
+    res.json({ formNames: rows.map((r) => r.formname) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, me };

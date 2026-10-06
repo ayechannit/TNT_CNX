@@ -61,6 +61,7 @@ function toQuery(params) {
 
 export const api = {
   login: (username, password) => request("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+  getMe: () => request("/auth/me"),
 
   getCategories: () => request("/categories?pageSize=1000").then((r) => r.data),
   searchStock: (params) => request(`/stock${toQuery(params)}`),

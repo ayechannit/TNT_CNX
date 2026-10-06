@@ -563,7 +563,9 @@ export default function SalePage() {
                   <RowActionsMenu
                     actions={[
                       { label: "View", icon: <EyeIcon />, onClick: () => handleView(h.SaleID) },
-                      { label: "Edit", icon: <EditIcon />, onClick: () => handleEdit(h.SaleID) },
+                      ...(can("EditSale")
+                        ? [{ label: "Edit", icon: <EditIcon />, onClick: () => handleEdit(h.SaleID) }]
+                        : []),
                       { label: "Print", icon: <PrinterIcon />, onClick: () => handlePrint(h.SaleID) },
                       ...(historyView === "unpaid"
                         ? [{ label: "Mark Paid", icon: <CheckCircleIcon />, onClick: () => handleMarkPaid(h.SaleID) }]
