@@ -1,5 +1,6 @@
 const pool = require("../db/pool");
 const { SQL_NOW, localToday } = require("../lib/localTime");
+const { changeStockBalance, itemErrors } = require("../lib/stockBalance");
 const { parsePagination } = require("../lib/pagination");
 
 // Replicates Gen_NewPurchaseId: BranchNo + "_P" + YYYYMMDD + 4-digit sequence.
@@ -102,6 +103,7 @@ function validate(body) {
   if (!body.supplierId) errors.push("Supplier is required");
   if (!body.branchId) errors.push("Branch is required");
   if (!Array.isArray(body.items) || body.items.length === 0) errors.push("At least one item is required");
+  errors.push(...itemErrors(body.items));
   return errors;
 }
 
@@ -145,10 +147,7 @@ async function create(req, res, next) {
          VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [purchaseId, String(item.stockId), item.qty, item.price, amount, user]
       );
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" + $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [item.qty, item.stockId, body.branchId]
-      );
+      await changeStockBalance(client, item.stockId, body.branchId, item.qty);
     }
 
     if (paid !== 0) {
@@ -187,10 +186,7 @@ async function update(req, res, next) {
 
     const oldItemsRes = await client.query(`SELECT "StockCode","Qty" FROM "PurchaseDtl" WHERE "PurchaseHDRID" = $1`, [id]);
     for (const d of oldItemsRes.rows) {
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" - $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [d.Qty, d.StockCode, existing.BranchID]
-      );
+      await changeStockBalance(client, d.StockCode, existing.BranchID, -d.Qty);
     }
 
     await client.query(`DELETE FROM "PurchaseDtl" WHERE "PurchaseHDRID" = $1`, [id]);
@@ -224,10 +220,7 @@ async function update(req, res, next) {
          VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [id, String(item.stockId), item.qty, item.price, amount, user]
       );
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" + $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [item.qty, item.stockId, body.branchId]
-      );
+      await changeStockBalance(client, item.stockId, body.branchId, item.qty);
     }
 
     if (paid !== 0) {
@@ -299,10 +292,7 @@ async function remove(req, res, next) {
 
     const detailRes = await client.query(`SELECT "StockCode","Qty" FROM "PurchaseDtl" WHERE "PurchaseHDRID" = $1`, [id]);
     for (const d of detailRes.rows) {
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" - $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [d.Qty, d.StockCode, purchase.BranchID]
-      );
+      await changeStockBalance(client, d.StockCode, purchase.BranchID, -d.Qty);
     }
 
     await client.query(`DELETE FROM "Payment" WHERE code = $1`, [purchase.PurchaseCode]);

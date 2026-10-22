@@ -1,5 +1,6 @@
 const pool = require("../db/pool");
 const { SQL_NOW, localToday } = require("../lib/localTime");
+const { changeStockBalance, itemErrors } = require("../lib/stockBalance");
 const { parsePagination } = require("../lib/pagination");
 
 // Replicates Gen_NewTransferId: BranchNo + "_T" + YYYYMMDD + 4-digit sequence.
@@ -111,8 +112,9 @@ function validate(body) {
   const errors = [];
   if (!body.fromBranchId) errors.push("From Branch is required");
   if (!body.toBranchId) errors.push("To Branch is required");
-  if (body.fromBranchId === body.toBranchId) errors.push("From and To branch must be different");
+  if (String(body.fromBranchId) === String(body.toBranchId)) errors.push("From and To branch must be different");
   if (!Array.isArray(body.items) || body.items.length === 0) errors.push("At least one item is required");
+  errors.push(...itemErrors(body.items));
   return errors;
 }
 
@@ -149,10 +151,7 @@ async function create(req, res, next) {
          VALUES ($1,$2,$3,$4,$5,'open',$6,$6)`,
         [transferId, String(item.stockId), item.price, item.qty, total, user]
       );
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" - $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [item.qty, item.stockId, body.fromBranchId]
-      );
+      await changeStockBalance(client, item.stockId, body.fromBranchId, -item.qty);
     }
 
     await client.query(
@@ -180,7 +179,9 @@ async function receive(req, res, next) {
     const user = req.body.user || "web";
     await client.query("BEGIN");
 
-    const hdrRes = await client.query(`SELECT "TransferCode","ToBranchID","TransferStatus" FROM "TransferHdr" WHERE "TransferID" = $1`, [id]);
+    // FOR UPDATE: two clicks on Receive must not both see "Open" and credit
+    // the destination twice.
+    const hdrRes = await client.query(`SELECT "TransferCode","ToBranchID","TransferStatus" FROM "TransferHdr" WHERE "TransferID" = $1 FOR UPDATE`, [id]);
     if (hdrRes.rows.length === 0) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Transfer not found" }); }
     const hdr = hdrRes.rows[0];
     if (hdr.TransferStatus === "Done") {
@@ -195,21 +196,7 @@ async function receive(req, res, next) {
     let totalAmount = 0;
     for (const d of detailRes.rows) {
       totalAmount += Number(d.Total);
-      const balRes = await client.query(
-        `SELECT "Qty" FROM "StockBalance" WHERE "StockID" = $1 AND "BranchID" = $2`,
-        [d.FK_StockCode, hdr.ToBranchID]
-      );
-      if (balRes.rows.length > 0) {
-        await client.query(
-          `UPDATE "StockBalance" SET "Qty" = "Qty" + $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-          [d.Qty, d.FK_StockCode, hdr.ToBranchID]
-        );
-      } else {
-        await client.query(
-          `INSERT INTO "StockBalance" ("StockID","Qty","BranchID") VALUES ($1,$2,$3)`,
-          [d.FK_StockCode, d.Qty, hdr.ToBranchID]
-        );
-      }
+      await changeStockBalance(client, d.FK_StockCode, hdr.ToBranchID, d.Qty);
     }
 
     await client.query(
@@ -236,16 +223,19 @@ async function remove(req, res, next) {
     const { id } = req.params;
     await client.query("BEGIN");
 
-    const hdrRes = await client.query(`SELECT "TransferCode","FromBranchID","TransferStatus" FROM "TransferHdr" WHERE "TransferID" = $1`, [id]);
+    const hdrRes = await client.query(`SELECT "TransferCode","FromBranchID","TransferStatus" FROM "TransferHdr" WHERE "TransferID" = $1 FOR UPDATE`, [id]);
     if (hdrRes.rows.length === 0) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Transfer not found" }); }
     const hdr = hdrRes.rows[0];
+    // A received transfer's stock is already in the destination branch;
+    // restoring the source too would create stock out of nothing.
+    if (hdr.TransferStatus === "Done") {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "This transfer has already been received and can't be deleted." });
+    }
 
     const detailRes = await client.query(`SELECT "FK_StockCode","Qty" FROM "TransferDtl" WHERE "TransferHdrID" = $1`, [id]);
     for (const d of detailRes.rows) {
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" + $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [d.Qty, d.FK_StockCode, hdr.FromBranchID]
-      );
+      await changeStockBalance(client, d.FK_StockCode, hdr.FromBranchID, d.Qty);
     }
 
     await client.query(`DELETE FROM "Payment" WHERE code = $1`, [hdr.TransferCode]);

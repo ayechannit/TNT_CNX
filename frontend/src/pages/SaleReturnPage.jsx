@@ -67,18 +67,24 @@ export default function SaleReturnPage() {
     try {
       const sale = await api.getSale(saleId);
       setSelectedSale(sale);
-      setReturnItems(
-        sale.items.map((d) => ({
-          saleDtlId: d.SaleDtlID,
-          stockId: Number(d.StockCode),
-          stockName: d.StockName,
-          stockCode: d.StockItemCode,
-          origQty: Number(d.Qty),
-          qty: Number(d.Qty),
-          price: Number(d.Price),
-          removed: false,
-        }))
-      );
+      // Only what earlier returns of this sale haven't already given back.
+      const items = sale.items
+        .map((d) => {
+          const left = Math.max(Number(d.Qty) - Number(d.ReturnedQty || 0), 0);
+          return {
+            saleDtlId: d.SaleDtlID,
+            stockId: Number(d.StockCode),
+            stockName: d.StockName,
+            stockCode: d.StockItemCode,
+            origQty: left,
+            qty: left,
+            price: Number(d.Price),
+            removed: false,
+          };
+        })
+        .filter((it) => it.origQty > 0);
+      if (items.length === 0) setError("Everything in this sale has already been returned.");
+      setReturnItems(items);
       setSaleResults([]);
       setSaleSearch("");
     } catch (err) {

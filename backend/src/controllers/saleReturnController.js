@@ -1,5 +1,6 @@
 const pool = require("../db/pool");
 const { SQL_NOW, localNow } = require("../lib/localTime");
+const { changeStockBalance, itemErrors } = require("../lib/stockBalance");
 const { parsePagination } = require("../lib/pagination");
 
 // SaleReturn has no code generator of its own - it reuses the original
@@ -81,7 +82,38 @@ function validate(body) {
   const errors = [];
   if (!body.saleId) errors.push("A sale must be selected");
   if (!Array.isArray(body.items) || body.items.length === 0) errors.push("At least one item is required");
+  errors.push(...itemErrors(body.items));
   return errors;
+}
+
+// Each stock item can only be returned up to what this sale sold, minus what
+// earlier returns of the same sale already gave back - otherwise a repeat or
+// oversized return would add stock that never came back.
+async function returnQtyError(client, saleId, saleCode, items) {
+  const soldRes = await client.query(
+    `SELECT d."StockCode"::int AS "StockID", SUM(d."Qty") AS "Qty", MAX(st."StockCode") AS "Code"
+     FROM "SaleDtl" d LEFT JOIN "StockMaster" st ON st."StockID" = d."StockCode"::int
+     WHERE d."SaleHDRID" = $1 GROUP BY 1`,
+    [saleId]
+  );
+  const returnedRes = await client.query(
+    `SELECT d."StockID", SUM(d."Qty") AS "Qty" FROM "SaleReturnDtl" d
+     JOIN "SaleReturnHDR" h ON h."SaleReturnHDRID" = d."SaleReturnHdrID"
+     WHERE h."SaleCode" = $1 GROUP BY 1`,
+    [saleCode]
+  );
+  const sold = new Map(soldRes.rows.map((r) => [Number(r.StockID), r]));
+  const returned = new Map(returnedRes.rows.map((r) => [Number(r.StockID), Number(r.Qty)]));
+  const requested = new Map();
+  for (const it of items) requested.set(Number(it.stockId), (requested.get(Number(it.stockId)) || 0) + Number(it.qty));
+
+  for (const [stockId, qty] of requested) {
+    const line = sold.get(stockId);
+    if (!line) return "An item being returned is not part of this sale.";
+    const left = Number(line.Qty) - (returned.get(stockId) || 0);
+    if (qty > left) return `${line.Code}: only ${Math.max(left, 0)} left to return from this sale.`;
+  }
+  return null;
 }
 
 // Returns items from an existing paid/leftover sale: increments stock back,
@@ -99,11 +131,14 @@ async function create(req, res, next) {
     await client.query("BEGIN");
 
     const saleRes = await client.query(
-      `SELECT "SaleCode","PatientID","TotalAmount","LeftOver","BranchID" FROM "SaleHdr" WHERE "SaleID" = $1`,
+      `SELECT "SaleCode","PatientID","TotalAmount","LeftOver","BranchID" FROM "SaleHdr" WHERE "SaleID" = $1 FOR UPDATE`,
       [body.saleId]
     );
     if (saleRes.rows.length === 0) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Sale not found" }); }
     const sale = saleRes.rows[0];
+
+    const qtyError = await returnQtyError(client, body.saleId, sale.SaleCode, body.items);
+    if (qtyError) { await client.query("ROLLBACK"); return res.status(400).json({ errors: [qtyError] }); }
 
     const user = body.user || "web";
     const returnDate = localNow();
@@ -130,10 +165,7 @@ async function create(req, res, next) {
          VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [saleReturnId, item.stockId, item.qty, item.price, amount, user]
       );
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" + $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [item.qty, item.stockId, sale.BranchID]
-      );
+      await changeStockBalance(client, item.stockId, sale.BranchID, item.qty);
     }
 
     await client.query(`UPDATE "SaleHdr" SET "Status" = 'RETURN' WHERE "SaleCode" = $1`, [sale.SaleCode]);
@@ -170,10 +202,7 @@ async function remove(req, res, next) {
 
     const detailRes = await client.query(`SELECT "StockID","Qty" FROM "SaleReturnDtl" WHERE "SaleReturnHdrID" = $1`, [id]);
     for (const d of detailRes.rows) {
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" - $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [d.Qty, d.StockID, hdr.BranchID]
-      );
+      await changeStockBalance(client, d.StockID, hdr.BranchID, -d.Qty);
     }
 
     await client.query(`DELETE FROM "Payment" WHERE code = $1 AND tablename = 'SALERETURN'`, [hdr.SaleCode]);

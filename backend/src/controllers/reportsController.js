@@ -781,8 +781,11 @@ const REPORTS = {
                  AND ($2::int IS NULL OR rh."BranchID" = $2::int)), 0)
              -
              COALESCE((SELECT SUM(td."Qty") FROM "TransferDtl" td JOIN "TransferHdr" th ON td."TransferHdrID" = th."TransferID"
-               WHERE td."FK_StockCode"::int = sm."StockID" AND th."TransferStatus" = 'Done' AND th."TransferDate"::date <= $1::date
-                 AND th."FromBranchID" = $2::int), 0)
+               WHERE td."FK_StockCode"::int = sm."StockID" AND th."TransferDate"::date <= $1::date
+                 -- Stock leaves the source when the transfer is created (Open),
+                 -- not when it is received. For All Branches only the still-Open
+                 -- (in transit) quantity is missing; Done ones net to zero.
+                 AND (CASE WHEN $2::int IS NULL THEN th."TransferStatus" <> 'Done' ELSE th."FromBranchID" = $2::int END)), 0)
              +
              COALESCE((SELECT SUM(a."AdjustedQty" - a."CurrentQty") FROM "Adjustment" a
                WHERE a."StockID" = sm."StockID" AND a."AdjustmentDate"::date <= $1::date

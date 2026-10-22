@@ -1,5 +1,6 @@
 const pool = require("../db/pool");
 const { SQL_NOW, localToday } = require("../lib/localTime");
+const { changeStockBalance, itemErrors } = require("../lib/stockBalance");
 const { parsePagination } = require("../lib/pagination");
 
 // Replicates Gen_NewSaleId: BranchNo + "_S" + YYYYMMDD + 4-digit sequence,
@@ -28,6 +29,14 @@ async function generateSaleCode(client, branchId, date) {
   const yyyymmdd = date.replace(/-/g, "");
   const seqPadded = String(seq).padStart(4, "0").slice(-4);
   return `${branchNo}_S${yyyymmdd}${seqPadded}`;
+}
+
+// Editing or deleting a sale puts its sold quantity back into stock. If items
+// were already returned through Sale Return, that stock was put back once
+// already - so the sale must stay as it is until the return is deleted.
+async function hasSaleReturn(client, saleCode) {
+  const { rows } = await client.query(`SELECT 1 FROM "SaleReturnHDR" WHERE "SaleCode" = $1 LIMIT 1`, [saleCode]);
+  return rows.length > 0;
 }
 
 async function list(req, res, next) {
@@ -94,11 +103,17 @@ async function getById(req, res, next) {
     );
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
+    // ReturnedQty: how much of this stock item earlier sale returns of this
+    // sale already gave back (per stock item, used to cap Sale Return).
     const detailRes = await pool.query(
-      `SELECT d.*, s."StockName", s."StockCode" AS "StockItemCode" FROM "SaleDtl" d
+      `SELECT d.*, s."StockName", s."StockCode" AS "StockItemCode",
+              COALESCE((SELECT SUM(rd."Qty") FROM "SaleReturnDtl" rd
+                JOIN "SaleReturnHDR" rh ON rh."SaleReturnHDRID" = rd."SaleReturnHdrID"
+                WHERE rh."SaleCode" = $2 AND rd."StockID" = d."StockCode"::int), 0) AS "ReturnedQty"
+       FROM "SaleDtl" d
        LEFT JOIN "StockMaster" s ON s."StockID" = d."StockCode"::int
        WHERE d."SaleHDRID" = $1`,
-      [req.params.id]
+      [req.params.id, rows[0].SaleCode]
     );
     const opticRes = await pool.query(`SELECT * FROM "OpticSale" WHERE salehdrid = $1`, [req.params.id]);
 
@@ -113,6 +128,7 @@ function validate(body) {
   if (!body.patientId) errors.push("Customer is required");
   if (!body.branchId) errors.push("Branch is required");
   if (!Array.isArray(body.items) || body.items.length === 0) errors.push("At least one item is required");
+  errors.push(...itemErrors(body.items));
   return errors;
 }
 
@@ -170,10 +186,7 @@ async function create(req, res, next) {
          VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [saleId, String(item.stockId), item.qty, item.price, amount, user]
       );
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" - $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [item.qty, item.stockId, body.branchId]
-      );
+      await changeStockBalance(client, item.stockId, body.branchId, -item.qty);
       if (item.price > 0) {
         await client.query(`UPDATE "StockMaster" SET sellprice = $1 WHERE "StockID" = $2`, [item.price, item.stockId]);
       }
@@ -302,16 +315,17 @@ async function remove(req, res, next) {
     const { id } = req.params;
     await client.query("BEGIN");
 
-    const saleRes = await client.query(`SELECT "SaleCode","BranchID" FROM "SaleHdr" WHERE "SaleID" = $1`, [id]);
+    const saleRes = await client.query(`SELECT "SaleCode","BranchID" FROM "SaleHdr" WHERE "SaleID" = $1 FOR UPDATE`, [id]);
     if (saleRes.rows.length === 0) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Sale not found" }); }
     const sale = saleRes.rows[0];
+    if (await hasSaleReturn(client, sale.SaleCode)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "This sale has a sale return. Delete the sale return first." });
+    }
 
     const detailRes = await client.query(`SELECT "StockCode","Qty" FROM "SaleDtl" WHERE "SaleHDRID" = $1`, [id]);
     for (const d of detailRes.rows) {
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" + $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [d.Qty, d.StockCode, sale.BranchID]
-      );
+      await changeStockBalance(client, d.StockCode, sale.BranchID, d.Qty);
       await client.query(`UPDATE "StockMaster" SET "SaleCount" = "SaleCount" - $1 WHERE "StockID" = $2`, [d.Qty, d.StockCode]);
     }
 
@@ -344,16 +358,17 @@ async function update(req, res, next) {
     await client.query("BEGIN");
     const { id } = req.params;
 
-    const existingRes = await client.query(`SELECT "SaleCode","BranchID" FROM "SaleHdr" WHERE "SaleID" = $1`, [id]);
+    const existingRes = await client.query(`SELECT "SaleCode","BranchID" FROM "SaleHdr" WHERE "SaleID" = $1 FOR UPDATE`, [id]);
     if (existingRes.rows.length === 0) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Sale not found" }); }
     const existing = existingRes.rows[0];
+    if (await hasSaleReturn(client, existing.SaleCode)) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: "This sale has a sale return. Delete the sale return first." });
+    }
 
     const oldItemsRes = await client.query(`SELECT "StockCode","Qty" FROM "SaleDtl" WHERE "SaleHDRID" = $1`, [id]);
     for (const d of oldItemsRes.rows) {
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" + $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [d.Qty, d.StockCode, existing.BranchID]
-      );
+      await changeStockBalance(client, d.StockCode, existing.BranchID, d.Qty);
       await client.query(`UPDATE "StockMaster" SET "SaleCount" = "SaleCount" - $1 WHERE "StockID" = $2`, [d.Qty, d.StockCode]);
     }
 
@@ -403,10 +418,7 @@ async function update(req, res, next) {
          VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [id, String(item.stockId), item.qty, item.price, amount, user]
       );
-      await client.query(
-        `UPDATE "StockBalance" SET "Qty" = "Qty" - $1 WHERE "StockID" = $2 AND "BranchID" = $3`,
-        [item.qty, item.stockId, body.branchId]
-      );
+      await changeStockBalance(client, item.stockId, body.branchId, -item.qty);
       if (item.price > 0) {
         await client.query(`UPDATE "StockMaster" SET sellprice = $1 WHERE "StockID" = $2`, [item.price, item.stockId]);
       }

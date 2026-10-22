@@ -566,7 +566,7 @@ export default function SalePage() {
                   <RowActionsMenu
                     actions={[
                       { label: "View", icon: <EyeIcon />, onClick: () => handleView(h.SaleID) },
-                      ...(can("EditSale")
+                      ...(can("EditSale") && h.Status !== "RETURN"
                         ? [{ label: "Edit", icon: <EditIcon />, onClick: () => handleEdit(h.SaleID) }]
                         : []),
                       { label: "Print", icon: <PrinterIcon />, onClick: () => handlePrint(h.SaleID) },
@@ -579,7 +579,7 @@ export default function SalePage() {
                       ...(historyView === "order"
                         ? [{ label: "Mark Delivered", icon: <TruckIcon />, onClick: () => handleDeliver(h.SaleID) }]
                         : []),
-                      ...(can("Delete")
+                      ...(can("Delete") && h.Status !== "RETURN"
                         ? [{ label: "Delete", icon: <TrashIcon />, onClick: () => handleDeleteSale(h.SaleID), danger: true }]
                         : []),
                     ]}

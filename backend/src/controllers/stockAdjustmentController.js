@@ -1,6 +1,7 @@
 const pool = require("../db/pool");
 const { SQL_NOW } = require("../lib/localTime");
 const { parsePagination } = require("../lib/pagination");
+const { lockStockBalance } = require("../lib/stockBalance");
 
 async function list(req, res, next) {
   try {
@@ -67,10 +68,16 @@ async function create(req, res, next) {
   if (newQty === undefined || newQty === null || newQty === "") {
     return res.status(400).json({ errors: ["New Stock Level can not be blank"] });
   }
+  if (!Number.isFinite(Number(newQty)) || Number(newQty) < 0) {
+    return res.status(400).json({ errors: ["New Stock Level must be a number, 0 or more"] });
+  }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // Same lock the sale/purchase/etc. saves take, so CurrentQty is exact and
+    // a concurrent save can not create a second row for this stock+branch.
+    await lockStockBalance(client, stockId, branchId);
 
     const balRes = await client.query(
       `SELECT "Qty" FROM "StockBalance" WHERE "StockID" = $1 AND "BranchID" = $2 FOR UPDATE`,
