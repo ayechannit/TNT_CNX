@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { SQL_NOW, localNow } = require("../lib/localTime");
 const { parsePagination } = require("../lib/pagination");
 
 // SaleReturn has no code generator of its own - it reuses the original
@@ -65,7 +66,7 @@ async function getById(req, res, next) {
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
     const detailRes = await pool.query(
-      `SELECT d.*, st."StockName" FROM "SaleReturnDtl" d
+      `SELECT d.*, st."StockName", st."StockCode" AS "StockItemCode" FROM "SaleReturnDtl" d
        LEFT JOIN "StockMaster" st ON st."StockID" = d."StockID"
        WHERE d."SaleReturnHdrID" = $1`,
       [req.params.id]
@@ -105,7 +106,7 @@ async function create(req, res, next) {
     const sale = saleRes.rows[0];
 
     const user = body.user || "web";
-    const returnDate = new Date().toISOString();
+    const returnDate = localNow();
     const returnAmount = body.items.reduce((sum, it) => sum + Number(it.qty) * Number(it.price), 0);
     const prevLeftover = Number(sale.LeftOver) || 0;
     const returnBalance = returnAmount + prevLeftover;
@@ -114,7 +115,7 @@ async function create(req, res, next) {
       `INSERT INTO "SaleReturnHDR"
         ("SaleCode","ReturnDate","PatientID","PrevAmount","PrevLeftover","ReturnAmount","ReturnBalance","Note",
          "CreateUser","CreateDate","UpdateUser","UpdateDate","BranchID")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),$9,now(),$10)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,${SQL_NOW},$9,${SQL_NOW},$10)
        RETURNING "SaleReturnHDRID"`,
       [sale.SaleCode, returnDate, sale.PatientID, sale.TotalAmount, prevLeftover, returnAmount, returnBalance,
         body.note || null, user, sale.BranchID]
@@ -126,7 +127,7 @@ async function create(req, res, next) {
       await client.query(
         `INSERT INTO "SaleReturnDtl"
           ("SaleReturnHdrID","StockID","Qty","Price","Amount","CreateUser","CreateDate","UpdateUser","UpdateDate")
-         VALUES ($1,$2,$3,$4,$5,$6,now(),$6,now())`,
+         VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [saleReturnId, item.stockId, item.qty, item.price, amount, user]
       );
       await client.query(
@@ -139,7 +140,7 @@ async function create(req, res, next) {
 
     await client.query(
       `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-       VALUES ($1, now(), $2, 'SALERETURN', $3, now(), $4)`,
+       VALUES ($1, ${SQL_NOW}, $2, 'SALERETURN', $3, ${SQL_NOW}, $4)`,
       [sale.SaleCode, returnBalance, user, sale.BranchID]
     );
 

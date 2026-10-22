@@ -12,6 +12,8 @@ import PhoneCallLink from "../components/PhoneCallLink";
 import RowActionsMenu from "../components/RowActionsMenu";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { EyeIcon, EditIcon, PrinterIcon, CheckCircleIcon, UndoIcon, TruckIcon, TrashIcon } from "../components/icons";
+import { todayStr } from "../lib/today";
+import { stockLabel } from "../lib/stockLabel";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "../components/SearchBox.css";
@@ -38,7 +40,7 @@ export default function SalePage() {
   const [branches, setBranches] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [branchId, setBranchId] = useState("");
-  const [saleDate, setSaleDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [saleDate, setSaleDate] = useState(() => todayStr());
   const [patientId, setPatientId] = useState("");
   const [items, setItems] = useState([]);
   const [discount, setDiscount] = useState(0);
@@ -207,6 +209,7 @@ export default function SalePage() {
         sale.items.map((d) => ({
           stockId: Number(d.StockCode),
           stockName: d.StockName,
+          stockCode: d.StockItemCode,
           qty: Number(d.Qty),
           price: Number(d.Price),
         }))
@@ -270,7 +273,7 @@ export default function SalePage() {
   const leftover = totalAmount - Number(paid || 0);
 
   function resetForm() {
-    setSaleDate(new Date().toISOString().slice(0, 10));
+    setSaleDate(todayStr());
     setPatientId("");
     setSelectedCustomer(null);
     setItems([]);
@@ -402,7 +405,7 @@ export default function SalePage() {
         <tbody>
           {items.map((i) => (
             <tr key={i.stockId}>
-              <td>{i.stockName}</td>
+              <td>{stockLabel(i.stockCode, i.stockName)}</td>
               <td>
                 <input type="number" className="cart-qty" value={i.qty}
                   onChange={(e) => updateItem(i.stockId, "qty", e.target.value)} />

@@ -1,4 +1,5 @@
 import voucherBg from "../assets/tnt-voucher-bg.png";
+import { stockLabel } from "./stockLabel";
 
 // Base (unscaled) type sizes/paddings for the printable area - see
 // voucherStylesCss() below for why these are parameterized instead of
@@ -213,7 +214,7 @@ function itemsRowsHtml(items) {
   return items
     .map(
       (i) => `<tr>
-        <td>${i.StockItemCode ? `${i.StockItemCode}${i.StockName ? "-" + i.StockName : ""}` : (i.StockName || i.StockCode)}</td>
+        <td>${esc(stockLabel(i.StockItemCode, i.StockName))}</td>
         <td style="text-align:right">${Number(i.Qty).toLocaleString()}</td>
         <td style="text-align:right">${Number(i.Price).toLocaleString()}</td>
         <td style="text-align:right">${Number(i.Amount).toLocaleString()}</td>
@@ -290,7 +291,7 @@ export function printSaleVoucher(sale) {
 
   const itemRows = items
     .map((i, idx) => {
-      const name = i.StockItemCode ? `${i.StockItemCode}${i.StockName ? " - " + i.StockName : ""}` : (i.StockName || i.StockCode);
+      const name = stockLabel(i.StockItemCode, i.StockName);
       const foc = Number(i.Amount || 0) === 0;
       return `<tr>
         <td class="c">${idx + 1}</td>

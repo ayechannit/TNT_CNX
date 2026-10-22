@@ -7,6 +7,7 @@ import SearchBox from "../components/SearchBox";
 import RowActionsMenu from "../components/RowActionsMenu";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { EditIcon, TrashIcon } from "../components/icons";
+import { todayStr } from "../lib/today";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -15,7 +16,7 @@ import "./ExpensePage.css";
 const emptyForm = {
   expenseid: null,
   expensetypeid: "",
-  expensedate: new Date().toISOString().slice(0, 10),
+  expensedate: todayStr(),
   description: "",
   amount: "",
 };

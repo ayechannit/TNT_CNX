@@ -3,14 +3,12 @@ import { api } from "../api/client";
 import SearchableSelect from "../components/SearchableSelect";
 import { printReportTable, printStatementReport } from "../lib/printReport";
 import { isNumericType, formatValue, formatSum, formatSignedSum, sumFields, groupRowsBy } from "../lib/reportFormat";
+import { todayStr } from "../lib/today";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
 import "./ReportsPage.css";
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
 function monthStartStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;

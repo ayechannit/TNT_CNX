@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { SQL_NOW } = require("../lib/localTime");
 
 // Reporting layer ported from the ~45 legacy R_* stored procedures.
 //
@@ -126,7 +127,7 @@ const REPORTS = {
     build(q) {
       const cashier = opt(q, "cashierUserId", "");
       return {
-        text: `SELECT s."StockName", SUM(d."Qty") AS "Qty", d."Price", c."CategoryName", u."RealName",
+        text: `SELECT (s."StockCode" || ' - ' || s."StockName") AS "StockName", SUM(d."Qty") AS "Qty", d."Price", c."CategoryName", u."RealName",
                 SUM(d."Amount") AS "Amount"
          FROM "SaleHdr" h JOIN "SaleDtl" d ON h."SaleID" = d."SaleHDRID"
          JOIN "StockMaster" s ON d."StockCode"::int = s."StockID"
@@ -134,7 +135,7 @@ const REPORTS = {
          JOIN "UserMaster" u ON u."UserID" = h."CreateUser"::int
          WHERE h."SaleDate"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3
            AND ($4 = '' OR h."CreateUser" = $4)
-         GROUP BY s."StockName", d."Price", c."CategoryName", u."RealName"
+         GROUP BY s."StockCode", s."StockName", d."Price", c."CategoryName", u."RealName"
          ORDER BY s."StockName" LIMIT ${ROW_LIMIT}`,
         values: [need(q, "fromDate"), need(q, "toDate"), need(q, "branchId"), cashier],
       };
@@ -161,7 +162,7 @@ const REPORTS = {
          FROM "SaleHdr" h JOIN "SaleDtl" d ON h."SaleID" = d."SaleHDRID"
          JOIN "StockMaster" s ON d."StockCode"::int = s."StockID"
          JOIN "CategoryMaster" c ON s."CategoryID" = c."CategoryID"
-         WHERE date_trunc('month', h."SaleDate"::date) = date_trunc('month', now() - interval '1 day')
+         WHERE date_trunc('month', h."SaleDate"::date) = date_trunc('month', ${SQL_NOW} - interval '1 day')
            AND h."BranchID" = $1
          GROUP BY s."StockName", d."Price", c."CategoryName", s."StockCode"
          ORDER BY s."StockName" LIMIT ${ROW_LIMIT}`,
@@ -305,11 +306,11 @@ const REPORTS = {
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
-        text: `SELECT s."StockName", SUM(d."Qty") AS "Qty", d."Price", SUM(d."Amount") AS "Amount"
+        text: `SELECT (s."StockCode" || ' - ' || s."StockName") AS "StockName", SUM(d."Qty") AS "Qty", d."Price", SUM(d."Amount") AS "Amount"
          FROM "SaleDtl" d JOIN "StockMaster" s ON d."StockCode"::int = s."StockID"
          JOIN "SaleHdr" h ON d."SaleHDRID" = h."SaleID"
          WHERE s."CategoryID" = 2 AND h."SaleDate"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3
-         GROUP BY s."StockName", d."Price" LIMIT ${ROW_LIMIT}`,
+         GROUP BY s."StockCode", s."StockName", d."Price" LIMIT ${ROW_LIMIT}`,
         values: [need(q, "fromDate"), need(q, "toDate"), need(q, "branchId")],
       };
     },
@@ -332,7 +333,7 @@ const REPORTS = {
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "stockId", type: "stock", required: true }],
     build(q) {
       return {
-        text: `SELECT h."SaleDate", h."SaleCode", p."PatientName", s."StockName", d."Qty", d."Price", d."Amount"
+        text: `SELECT h."SaleDate", h."SaleCode", p."PatientName", (s."StockCode" || ' - ' || s."StockName") AS "StockName", d."Qty", d."Price", d."Amount"
          FROM "SaleDtl" d JOIN "SaleHdr" h ON d."SaleHDRID" = h."SaleID"
          JOIN "PatientMaster" p ON h."PatientID" = p."PatientID"
          JOIN "StockMaster" s ON d."StockCode"::int = s."StockID"
@@ -487,7 +488,7 @@ const REPORTS = {
       const supplierId = opt(q, "supplierId", "");
       const categoryId = opt(q, "categoryId", "");
       return {
-        text: `SELECT s."StockName", SUM(d."Qty") AS "Qty", d."Price", c."CategoryName", sup."SupplierName",
+        text: `SELECT (s."StockCode" || ' - ' || s."StockName") AS "StockName", SUM(d."Qty") AS "Qty", d."Price", c."CategoryName", sup."SupplierName",
                 SUM(d."Amount") AS "Amount"
          FROM "PurchaseHdr" h JOIN "PurchaseDtl" d ON h."PurchaseID" = d."PurchaseHDRID"
          JOIN "StockMaster" s ON d."StockCode"::int = s."StockID"
@@ -496,7 +497,7 @@ const REPORTS = {
          WHERE h."PurchaseDate"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3
            AND ($4 = '' OR h."SupplierID"::text = $4)
            AND ($5 = '' OR s."CategoryID"::text = $5)
-         GROUP BY s."StockName", d."Price", c."CategoryName", sup."SupplierName"
+         GROUP BY s."StockCode", s."StockName", d."Price", c."CategoryName", sup."SupplierName"
          ORDER BY s."StockName" LIMIT ${ROW_LIMIT}`,
         values: [need(q, "fromDate"), need(q, "toDate"), need(q, "branchId"), supplierId, categoryId],
       };
@@ -523,7 +524,7 @@ const REPORTS = {
          FROM "PurchaseHdr" h JOIN "PurchaseDtl" d ON h."PurchaseID" = d."PurchaseHDRID"
          JOIN "StockMaster" s ON d."StockCode"::int = s."StockID"
          JOIN "CategoryMaster" c ON s."CategoryID" = c."CategoryID"
-         WHERE date_trunc('month', h."PurchaseDate"::date) = date_trunc('month', now() - interval '1 day')
+         WHERE date_trunc('month', h."PurchaseDate"::date) = date_trunc('month', ${SQL_NOW} - interval '1 day')
            AND h."BranchID" = $1
          GROUP BY s."StockCode", s."StockName", d."Price", c."CategoryName"
          ORDER BY s."StockName" LIMIT ${ROW_LIMIT}`,
@@ -637,13 +638,13 @@ const REPORTS = {
     params: [{ name: "branchId", type: "branch", required: true }, { name: "status", type: "select", options: ["PAID", "LEFTOVER"], required: true }],
     build(q) {
       return {
-        text: `SELECT s."StockName", SUM(d."Qty") AS "Qty", d."Price", c."CategoryName", h."Status"
+        text: `SELECT (s."StockCode" || ' - ' || s."StockName") AS "StockName", SUM(d."Qty") AS "Qty", d."Price", c."CategoryName", h."Status"
          FROM "ReturnHdr" h JOIN "ReturnDtl" d ON h."ReturnID" = d."ReturnHDRID"
          JOIN "StockMaster" s ON d."StockCode"::int = s."StockID"
          JOIN "CategoryMaster" c ON s."CategoryID" = c."CategoryID"
-         WHERE date_trunc('month', h."Date"::date) = date_trunc('month', now() - interval '1 day')
+         WHERE date_trunc('month', h."Date"::date) = date_trunc('month', ${SQL_NOW} - interval '1 day')
            AND h."Status" = $2 AND h."BranchID" = $1
-         GROUP BY s."StockName", d."Price", c."CategoryName", h."Status"
+         GROUP BY s."StockCode", s."StockName", d."Price", c."CategoryName", h."Status"
          ORDER BY s."StockName" LIMIT ${ROW_LIMIT}`,
         values: [need(q, "branchId"), need(q, "status")],
       };
@@ -696,12 +697,12 @@ const REPORTS = {
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }],
     build(q) {
       return {
-        text: `SELECT s."StockName", c."CategoryName", SUM(d."Qty") AS "Qty", d."Price", SUM(d."Amount") AS "Amount",
+        text: `SELECT (s."StockCode" || ' - ' || s."StockName") AS "StockName", c."CategoryName", SUM(d."Qty") AS "Qty", d."Price", SUM(d."Amount") AS "Amount",
                 (SELECT SUM(paidamount) FROM "Payment" WHERE tablename = 'SALERETURN' AND paymentdate::date BETWEEN $1::date AND $2::date) AS "TotalPaid"
          FROM "SaleReturnDtl" d JOIN "StockMaster" s ON d."StockID" = s."StockID"
          JOIN "CategoryMaster" c ON s."CategoryID" = c."CategoryID"
          WHERE d."CreateDate"::date BETWEEN $1::date AND $2::date
-         GROUP BY s."StockName", c."CategoryName", d."Price" LIMIT ${ROW_LIMIT}`,
+         GROUP BY s."StockCode", s."StockName", c."CategoryName", d."Price" LIMIT ${ROW_LIMIT}`,
         values: [need(q, "fromDate"), need(q, "toDate")],
       };
     },
@@ -724,14 +725,14 @@ const REPORTS = {
     params: [{ name: "fromDate", type: "date", required: true }, { name: "toDate", type: "date", required: true }, { name: "branchId", type: "branch", required: true }],
     build(q) {
       return {
-        text: `SELECT s."StockName", SUM(d."Qty") AS "Qty", d."Price", c."CategoryName", pm."PatientName",
+        text: `SELECT (s."StockCode" || ' - ' || s."StockName") AS "StockName", SUM(d."Qty") AS "Qty", d."Price", c."CategoryName", pm."PatientName",
                 SUM(d."Amount") AS "Amount"
          FROM "SaleReturnHDR" h JOIN "SaleReturnDtl" d ON h."SaleReturnHDRID" = d."SaleReturnHdrID"
          JOIN "StockMaster" s ON d."StockID" = s."StockID"
          JOIN "CategoryMaster" c ON s."CategoryID" = c."CategoryID"
          JOIN "PatientMaster" pm ON h."PatientID" = pm."PatientID"
          WHERE h."ReturnDate"::date BETWEEN $1::date AND $2::date AND h."BranchID" = $3
-         GROUP BY s."StockName", d."Price", c."CategoryName", pm."PatientName"
+         GROUP BY s."StockCode", s."StockName", d."Price", c."CategoryName", pm."PatientName"
          ORDER BY s."StockName" LIMIT ${ROW_LIMIT}`,
         values: [need(q, "fromDate"), need(q, "toDate"), need(q, "branchId")],
       };

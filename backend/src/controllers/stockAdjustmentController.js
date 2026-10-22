@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { SQL_NOW } = require("../lib/localTime");
 const { parsePagination } = require("../lib/pagination");
 
 async function list(req, res, next) {
@@ -81,7 +82,7 @@ async function create(req, res, next) {
     const insRes = await client.query(
       `INSERT INTO "Adjustment"
         ("AdjustmentDate","StockID","CurrentQty","AdjustedQty","CreateUser","CreateDate","UpdateUser","UpdateDate","BranchID")
-       VALUES (now(),$1,$2,$3,$4,now(),$4,now(),$5)
+       VALUES (${SQL_NOW},$1,$2,$3,$4,${SQL_NOW},$4,${SQL_NOW},$5)
        RETURNING "AdjustmentID"`,
       [stockId, currentQty, adjustedQty, user || "web", branchId]
     );

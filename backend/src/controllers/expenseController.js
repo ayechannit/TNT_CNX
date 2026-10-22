@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { localNow } = require("../lib/localTime");
 const { parsePagination } = require("../lib/pagination");
 
 async function list(req, res, next) {
@@ -69,7 +70,7 @@ async function create(req, res, next) {
     const errors = validate(body);
     if (errors.length) return res.status(400).json({ errors });
 
-    const now = new Date().toISOString();
+    const now = localNow();
     const { rows } = await pool.query(
       `INSERT INTO "Expense"
         (expensetypeid, expensedate, description, amount, status, createuser, createdate, updateuser, updatedate, branchid, "LastModifiedDate")
@@ -90,7 +91,7 @@ async function update(req, res, next) {
     const errors = validate(body);
     if (errors.length) return res.status(400).json({ errors });
 
-    const now = new Date().toISOString();
+    const now = localNow();
     const { rowCount } = await pool.query(
       `UPDATE "Expense" SET
         expensetypeid = $1, expensedate = $2, description = $3, amount = $4,

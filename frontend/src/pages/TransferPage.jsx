@@ -9,6 +9,8 @@ import TransferDetailModal from "../components/TransferDetailModal";
 import RowActionsMenu from "../components/RowActionsMenu";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { EyeIcon, CheckCircleIcon, TrashIcon } from "../components/icons";
+import { todayStr } from "../lib/today";
+import { stockLabel } from "../lib/stockLabel";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -17,7 +19,7 @@ export default function TransferPage() {
   const [branches, setBranches] = useState([]);
   const [fromBranchId, setFromBranchId] = useState("");
   const [toBranchId, setToBranchId] = useState("");
-  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [transferDate, setTransferDate] = useState(() => todayStr());
   const [transferBy, setTransferBy] = useState("");
   const [remark, setRemark] = useState("");
   const [items, setItems] = useState([]);
@@ -76,6 +78,7 @@ export default function TransferPage() {
       return [...prev, {
         stockId: stock.StockID,
         stockName: stock.StockName,
+        stockCode: stock.StockCode,
         qty: 1,
         price: Number(stock.sellprice) || 0,
       }];
@@ -94,7 +97,7 @@ export default function TransferPage() {
 
   function resetForm() {
     setToBranchId("");
-    setTransferDate(new Date().toISOString().slice(0, 10));
+    setTransferDate(todayStr());
     setTransferBy("");
     setRemark("");
     setItems([]);
@@ -210,7 +213,7 @@ export default function TransferPage() {
         <tbody>
           {items.map((i) => (
             <tr key={i.stockId}>
-              <td>{i.stockName}</td>
+              <td>{stockLabel(i.stockCode, i.stockName)}</td>
               <td>
                 <input type="number" className="cart-qty" value={i.qty}
                   onChange={(e) => updateItem(i.stockId, "qty", e.target.value)} />

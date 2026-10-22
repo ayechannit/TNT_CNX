@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { SQL_NOW, localToday } = require("../lib/localTime");
 const { parsePagination } = require("../lib/pagination");
 
 // Replicates Gen_NewTransferId: BranchNo + "_T" + YYYYMMDD + 4-digit sequence.
@@ -95,7 +96,7 @@ async function getById(req, res, next) {
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
     const detailRes = await pool.query(
-      `SELECT d.*, s."StockName" FROM "TransferDtl" d
+      `SELECT d.*, s."StockName", s."StockCode" AS "StockItemCode" FROM "TransferDtl" d
        LEFT JOIN "StockMaster" s ON s."StockID" = d."FK_StockCode"::int
        WHERE d."TransferHdrID" = $1`,
       [req.params.id]
@@ -124,7 +125,7 @@ async function create(req, res, next) {
   try {
     await client.query("BEGIN");
 
-    const transferDate = body.transferDate || new Date().toISOString().slice(0, 10);
+    const transferDate = body.transferDate || localToday();
     const user = body.user || "web";
     const totalAmount = body.items.reduce((sum, it) => sum + Number(it.qty) * Number(it.price), 0);
 
@@ -134,7 +135,7 @@ async function create(req, res, next) {
       `INSERT INTO "TransferHdr"
         ("TransferCode","TransferDate","FromBranchID","ToBranchID","TransferStatus","TransferBy","Remark",
          "CreateUser","CreateDate","UpdateUser","UpdateDate","TotalAmount")
-       VALUES ($1,$2,$3,$4,'Open',$5,$6,$7,now(),$7,now(),$8)
+       VALUES ($1,$2,$3,$4,'Open',$5,$6,$7,${SQL_NOW},$7,${SQL_NOW},$8)
        RETURNING "TransferID"`,
       [transferCode, transferDate, body.fromBranchId, body.toBranchId, body.transferBy || "", body.remark || "", user, totalAmount]
     );
@@ -156,7 +157,7 @@ async function create(req, res, next) {
 
     await client.query(
       `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-       VALUES ($1,$2,$3,'TRANSFEROUT',$4,now(),$5)`,
+       VALUES ($1,$2,$3,'TRANSFEROUT',$4,${SQL_NOW},$5)`,
       [transferCode, transferDate, totalAmount, user, body.fromBranchId]
     );
 
@@ -213,7 +214,7 @@ async function receive(req, res, next) {
 
     await client.query(
       `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-       VALUES ($1, now(), $2, 'TRANSFERIN', $3, now(), $4)`,
+       VALUES ($1, ${SQL_NOW}, $2, 'TRANSFERIN', $3, ${SQL_NOW}, $4)`,
       [hdr.TransferCode, Math.abs(totalAmount), user, hdr.ToBranchID]
     );
 

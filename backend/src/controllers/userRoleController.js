@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { SQL_NOW } = require("../lib/localTime");
 
 async function getRoles(req, res, next) {
   try {
@@ -23,7 +24,7 @@ async function setRoles(req, res, next) {
     await client.query(`DELETE FROM "UserRole" WHERE userid = $1`, [userId]);
     for (const formname of formnames) {
       await client.query(
-        `INSERT INTO "UserRole" (userid, formname, createuser, createdate) VALUES ($1, $2, $3, now())`,
+        `INSERT INTO "UserRole" (userid, formname, createuser, createdate) VALUES ($1, $2, $3, ${SQL_NOW})`,
         [userId, formname, user]
       );
     }

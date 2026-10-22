@@ -9,6 +9,8 @@ import ReturnDetailModal from "../components/ReturnDetailModal";
 import RowActionsMenu from "../components/RowActionsMenu";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { EyeIcon, TrashIcon } from "../components/icons";
+import { todayStr } from "../lib/today";
+import { stockLabel } from "../lib/stockLabel";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -18,7 +20,7 @@ export default function ReturnPage() {
   const [suppliers, setSuppliers] = useState([]);
   const [branchId, setBranchId] = useState("");
   const [returnType, setReturnType] = useState("RETURN"); // RETURN | DAMAGE
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todayStr());
   const [supplierId, setSupplierId] = useState("");
   const [items, setItems] = useState([]);
   const [paid, setPaid] = useState(0);
@@ -95,6 +97,7 @@ export default function ReturnPage() {
       return [...prev, {
         stockId: stock.StockID,
         stockName: stock.StockName,
+        stockCode: stock.StockCode,
         qty: 1,
         price: Number(stock.sellprice) || 0,
       }];
@@ -115,7 +118,7 @@ export default function ReturnPage() {
   const leftover = totalAmount - effectivePaid;
 
   function resetForm() {
-    setDate(new Date().toISOString().slice(0, 10));
+    setDate(todayStr());
     setSupplierId("");
     setItems([]);
     setPaid(0);
@@ -205,7 +208,7 @@ export default function ReturnPage() {
         <tbody>
           {items.map((i) => (
             <tr key={i.stockId}>
-              <td>{i.stockName}</td>
+              <td>{stockLabel(i.stockCode, i.stockName)}</td>
               <td>
                 <input type="number" className="cart-qty" value={i.qty}
                   onChange={(e) => updateItem(i.stockId, "qty", e.target.value)} />

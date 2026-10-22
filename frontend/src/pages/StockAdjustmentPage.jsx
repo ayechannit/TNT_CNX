@@ -5,6 +5,7 @@ import ItemFinder from "../components/ItemFinder";
 import PaginationBar from "../components/PaginationBar";
 import SearchBox from "../components/SearchBox";
 import LoadingOverlay from "../components/LoadingOverlay";
+import { stockLabel } from "../lib/stockLabel";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -92,7 +93,7 @@ export default function StockAdjustmentPage() {
         newQty: Number(newQty),
         user: "web",
       });
-      setMessage(`Stock level for ${selectedStock.StockName} adjusted from ${currentQty} to ${newQty}.`);
+      setMessage(`Stock level for ${stockLabel(selectedStock.StockCode, selectedStock.StockName)} adjusted from ${currentQty} to ${newQty}.`);
       cancel();
       loadHistory();
     } catch (err) {
@@ -123,7 +124,7 @@ export default function StockAdjustmentPage() {
 
       {selectedStock && (
         <div className="role-group" style={{ maxWidth: 420, marginTop: 14 }}>
-          <h3>{selectedStock.StockName} ({selectedStock.StockCode})</h3>
+          <h3>{stockLabel(selectedStock.StockCode, selectedStock.StockName)}</h3>
 
           <div className="summary-rows">
             <div className="summary-row">
@@ -187,7 +188,7 @@ export default function StockAdjustmentPage() {
               return (
                 <tr key={h.AdjustmentID}>
                   <td>{h.AdjustmentDate ? h.AdjustmentDate.slice(0, 16).replace("T", " ") : ""}</td>
-                  <td>{h.StockName} ({h.StockCode})</td>
+                  <td>{stockLabel(h.StockCode, h.StockName)}</td>
                   <td className="num">{Number(h.CurrentQty).toLocaleString()}</td>
                   <td className="num">{Number(h.AdjustedQty).toLocaleString()}</td>
                   <td className="num" style={{ color: diff >= 0 ? "#00695c" : "#b71c1c" }}>

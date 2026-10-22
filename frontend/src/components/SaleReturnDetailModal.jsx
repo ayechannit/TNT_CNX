@@ -1,3 +1,4 @@
+import { stockLabel } from "../lib/stockLabel";
 import "./SaleDetailModal.css";
 
 export default function SaleReturnDetailModal({ returnData, onClose }) {
@@ -21,7 +22,7 @@ export default function SaleReturnDetailModal({ returnData, onClose }) {
           <tbody>
             {returnData.items.map((i) => (
               <tr key={i.SaleReturnDtlID}>
-                <td>{i.StockName || i.StockID}</td>
+                <td>{stockLabel(i.StockItemCode, i.StockName)}</td>
                 <td className="num">{Number(i.Qty).toLocaleString()}</td>
                 <td className="num">{Number(i.Price).toLocaleString()}</td>
                 <td className="num">{Number(i.Amount).toLocaleString()}</td>

@@ -1,3 +1,4 @@
+import { stockLabel } from "../lib/stockLabel";
 import "./SaleDetailModal.css";
 
 export default function TransferDetailModal({ transfer, onClose }) {
@@ -23,7 +24,7 @@ export default function TransferDetailModal({ transfer, onClose }) {
           <tbody>
             {transfer.items.map((i) => (
               <tr key={i.TransferDtlID}>
-                <td>{i.StockName || i.FK_StockCode}</td>
+                <td>{stockLabel(i.StockItemCode, i.StockName)}</td>
                 <td className="num">{Number(i.Qty).toLocaleString()}</td>
                 <td className="num">{Number(i.Price).toLocaleString()}</td>
                 <td className="num">{Number(i.Total).toLocaleString()}</td>

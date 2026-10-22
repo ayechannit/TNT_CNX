@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { stockLabel } from "../lib/stockLabel";
 import "./ItemFinder.css";
 
 /**
@@ -78,9 +79,9 @@ export default function ItemFinder({ onSelect, placeholder }) {
         <div className="item-finder-dropdown">
           {results.map((r) => (
             <div key={r.StockID} className="item-finder-option" onMouseDown={() => pick(r)}>
-              <span className="item-finder-name">{r.StockName}</span>
+              <span className="item-finder-name">{stockLabel(r.StockCode, r.StockName)}</span>
               <span className="item-finder-meta">
-                {r.StockCode} · {Number(r.sellprice).toLocaleString()}
+                {Number(r.sellprice).toLocaleString()}
                 {r.Barcode ? ` · ${r.Barcode}` : ""}
               </span>
             </div>

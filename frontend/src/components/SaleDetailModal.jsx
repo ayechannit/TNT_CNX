@@ -1,4 +1,5 @@
 import { fmtDate, fmtTime } from "../lib/printVoucher";
+import { stockLabel } from "../lib/stockLabel";
 import "./SaleDetailModal.css";
 import "./SaleSlip.css";
 
@@ -74,7 +75,7 @@ export default function SaleDetailModal({ sale, onClose }) {
                   return (
                     <tr key={i.SaleDtlID}>
                       <td className="c">{idx + 1}</td>
-                      <td>{i.StockItemCode ? `${i.StockItemCode}${i.StockName ? " - " + i.StockName : ""}` : (i.StockName || "")}</td>
+                      <td>{stockLabel(i.StockItemCode, i.StockName)}</td>
                       <td className="c">{money(i.Qty)}</td>
                       <td className="r">{foc ? "FOC" : money(i.Price)}</td>
                       <td className="r">{foc ? "FOC" : money(i.Amount)}</td>

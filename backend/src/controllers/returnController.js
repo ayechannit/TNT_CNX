@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { SQL_NOW, localToday } = require("../lib/localTime");
 const { parsePagination } = require("../lib/pagination");
 
 // Replicates Gen_NewReturnId: BranchNo + "_R" + YYYYMMDD + 4-digit sequence.
@@ -89,7 +90,7 @@ async function getById(req, res, next) {
     if (rows.length === 0) return res.status(404).json({ error: "Not found" });
 
     const detailRes = await pool.query(
-      `SELECT d.*, st."StockName" FROM "ReturnDtl" d
+      `SELECT d.*, st."StockName", st."StockCode" AS "StockItemCode" FROM "ReturnDtl" d
        LEFT JOIN "StockMaster" st ON st."StockID" = d."StockCode"::int
        WHERE d."ReturnHDRID" = $1`,
       [req.params.id]
@@ -121,7 +122,7 @@ async function create(req, res, next) {
   try {
     await client.query("BEGIN");
 
-    const date = body.date || new Date().toISOString().slice(0, 10);
+    const date = body.date || localToday();
     const user = body.user || "web";
     const isDamage = body.type === "DAMAGE";
     const supplierId = isDamage ? 2 : body.supplierId;
@@ -137,7 +138,7 @@ async function create(req, res, next) {
       `INSERT INTO "ReturnHdr"
         ("ReturnCode","Date","Type","SupplierID","TotalAmount","Paid","LeftOver","Note",
          "Status","CreateUser","CreateDate","UpdateUser","UpdateDate","BranchID")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),$10,now(),$11)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,${SQL_NOW},$10,${SQL_NOW},$11)
        RETURNING "ReturnID"`,
       [returnCode, date, body.type, supplierId, totalAmount, paid, leftover,
         body.note || null, status, user, body.branchId]
@@ -149,7 +150,7 @@ async function create(req, res, next) {
       await client.query(
         `INSERT INTO "ReturnDtl"
           ("ReturnHDRID","StockCode","Qty","Price","Amount","CreateUser","CreateDate","UpdateUser","UpdateDate")
-         VALUES ($1,$2,$3,$4,$5,$6,now(),$6,now())`,
+         VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [returnId, String(item.stockId), item.qty, item.price, amount, user]
       );
       await client.query(
@@ -161,7 +162,7 @@ async function create(req, res, next) {
     if (paid !== 0) {
       await client.query(
         `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-         VALUES ($1,$2,$3,$4,$5,now(),$6)`,
+         VALUES ($1,$2,$3,$4,$5,${SQL_NOW},$6)`,
         [returnCode, date, paid, tablename, user, body.branchId]
       );
     }

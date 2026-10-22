@@ -1,6 +1,11 @@
+import { fmtDate, fmtTime } from "../lib/printVoucher";
+import { stockLabel } from "../lib/stockLabel";
 import "./SaleDetailModal.css";
 
 export default function PurchaseDetailModal({ purchase, onClose }) {
+  // PurchaseDate holds only the date; the time comes from when it was saved.
+  const ownTime = fmtTime(purchase.PurchaseDate);
+  const purchaseTime = ownTime && ownTime !== "00:00" ? ownTime : fmtTime(purchase.CreateDate);
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
@@ -10,7 +15,7 @@ export default function PurchaseDetailModal({ purchase, onClose }) {
         </div>
 
         <div className="modal-meta">
-          <div><span>Date</span><strong>{(purchase.PurchaseDate || "").slice(0, 10)}</strong></div>
+          <div><span>Date</span><strong>{fmtDate(purchase.PurchaseDate)} {purchaseTime}</strong></div>
           <div><span>Supplier</span><strong>{purchase.SupplierName || "-"}</strong></div>
           <div><span>Status</span><strong>{purchase.Status}</strong></div>
         </div>
@@ -22,7 +27,7 @@ export default function PurchaseDetailModal({ purchase, onClose }) {
           <tbody>
             {purchase.items.map((i) => (
               <tr key={i.PurchaseDtlID}>
-                <td>{i.StockName || i.StockCode}</td>
+                <td>{stockLabel(i.StockItemCode, i.StockName)}</td>
                 <td className="num">{Number(i.Qty).toLocaleString()}</td>
                 <td className="num">{Number(i.Price).toLocaleString()}</td>
                 <td className="num">{Number(i.Amount).toLocaleString()}</td>

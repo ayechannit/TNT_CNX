@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { SQL_NOW } = require("../lib/localTime");
 const { parsePagination } = require("../lib/pagination");
 
 async function search(req, res, next) {
@@ -141,7 +142,7 @@ async function create(req, res, next) {
       `INSERT INTO "StockMaster"
         ("CategoryID","StockCode","StockName","StockType","Reorderlevel","sellprice",
          "SaleCount","status","Barcode","CreateUser","CreateDate","UpdateUser","UpdateDate")
-       VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8,$9,now(),$9,now())
+       VALUES ($1,$2,$3,$4,$5,$6,0,$7,$8,$9,${SQL_NOW},$9,${SQL_NOW})
        RETURNING "StockID"`,
       [
         body.CategoryID,
@@ -182,7 +183,7 @@ async function update(req, res, next) {
       `UPDATE "StockMaster" SET
         "CategoryID" = $1, "StockCode" = $2, "StockName" = $3, "StockType" = $4,
         "Reorderlevel" = $5, "sellprice" = $6, "status" = $7, "Barcode" = $8,
-        "UpdateUser" = $9, "UpdateDate" = now()
+        "UpdateUser" = $9, "UpdateDate" = ${SQL_NOW}
        WHERE "StockID" = $10`,
       [
         body.CategoryID,

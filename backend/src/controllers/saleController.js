@@ -1,4 +1,5 @@
 const pool = require("../db/pool");
+const { SQL_NOW, localToday } = require("../lib/localTime");
 const { parsePagination } = require("../lib/pagination");
 
 // Replicates Gen_NewSaleId: BranchNo + "_S" + YYYYMMDD + 4-digit sequence,
@@ -124,7 +125,7 @@ async function create(req, res, next) {
   try {
     await client.query("BEGIN");
 
-    const saleDate = body.saleDate || new Date().toISOString().slice(0, 10);
+    const saleDate = body.saleDate || localToday();
     const user = (req.user && req.user.userName) || body.user || "web";
     const discount = Number(body.discount) || 0;
     const tax = Number(body.tax) || 0;
@@ -140,7 +141,7 @@ async function create(req, res, next) {
       `INSERT INTO "SaleHdr"
         ("SaleCode","SaleDate","PatientID","Discount","Tax","TotalAmount","Paid","LeftOver","Note",
          "Status","CreateUser","CreateDate","UpdateUser","UpdateDate","BranchID")
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),$11,now(),$12)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,${SQL_NOW},$11,${SQL_NOW},$12)
        RETURNING "SaleID"`,
       [saleCode, saleDate, body.patientId, discount, tax, totalAmount, paid, leftover,
         body.note || null, status, user, body.branchId]
@@ -166,7 +167,7 @@ async function create(req, res, next) {
       await client.query(
         `INSERT INTO "SaleDtl"
           ("SaleHDRID","StockCode","Qty","Price","Amount","CreateUser","CreateDate","UpdateUser","UpdateDate")
-         VALUES ($1,$2,$3,$4,$5,$6,now(),$6,now())`,
+         VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [saleId, String(item.stockId), item.qty, item.price, amount, user]
       );
       await client.query(
@@ -181,14 +182,14 @@ async function create(req, res, next) {
     if (paid !== 0) {
       await client.query(
         `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-         VALUES ($1,$2,$3,'SALE',$4,now(),$5)`,
+         VALUES ($1,$2,$3,'SALE',$4,${SQL_NOW},$5)`,
         [saleCode, saleDate, paid, user, body.branchId]
       );
     }
     if (leftover > 0) {
       await client.query(
         `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-         VALUES ($1,$2,$3,'SALEDEBIT',$4,now(),$5)`,
+         VALUES ($1,$2,$3,'SALEDEBIT',$4,${SQL_NOW},$5)`,
         [saleCode, saleDate, leftover, user, body.branchId]
       );
     }
@@ -227,7 +228,7 @@ async function markPaid(req, res, next) {
     );
     await client.query(
       `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-       VALUES ($1, now(), $2, 'DEBITPAID', $3, now(), $4)`,
+       VALUES ($1, ${SQL_NOW}, $2, 'DEBITPAID', $3, ${SQL_NOW}, $4)`,
       [sale.SaleCode, Math.abs(sale.LeftOver), user, sale.BranchID]
     );
 
@@ -360,7 +361,7 @@ async function update(req, res, next) {
     await client.query(`DELETE FROM "OpticSale" WHERE salehdrid = $1`, [id]);
     await client.query(`DELETE FROM "Payment" WHERE code = $1`, [existing.SaleCode]);
 
-    const saleDate = body.saleDate || new Date().toISOString().slice(0, 10);
+    const saleDate = body.saleDate || localToday();
     const user = (req.user && req.user.userName) || body.user || "web";
     const discount = Number(body.discount) || 0;
     const tax = Number(body.tax) || 0;
@@ -373,7 +374,7 @@ async function update(req, res, next) {
     await client.query(
       `UPDATE "SaleHdr" SET
         "SaleDate" = $1, "PatientID" = $2, "Discount" = $3, "Tax" = $4, "TotalAmount" = $5,
-        "Paid" = $6, "LeftOver" = $7, "Note" = $8, "Status" = $9, "UpdateUser" = $10, "UpdateDate" = now(),
+        "Paid" = $6, "LeftOver" = $7, "Note" = $8, "Status" = $9, "UpdateUser" = $10, "UpdateDate" = ${SQL_NOW},
         "BranchID" = $11
        WHERE "SaleID" = $12`,
       [saleDate, body.patientId, discount, tax, totalAmount, paid, leftover,
@@ -399,7 +400,7 @@ async function update(req, res, next) {
       await client.query(
         `INSERT INTO "SaleDtl"
           ("SaleHDRID","StockCode","Qty","Price","Amount","CreateUser","CreateDate","UpdateUser","UpdateDate")
-         VALUES ($1,$2,$3,$4,$5,$6,now(),$6,now())`,
+         VALUES ($1,$2,$3,$4,$5,$6,${SQL_NOW},$6,${SQL_NOW})`,
         [id, String(item.stockId), item.qty, item.price, amount, user]
       );
       await client.query(
@@ -414,14 +415,14 @@ async function update(req, res, next) {
     if (paid !== 0) {
       await client.query(
         `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-         VALUES ($1,$2,$3,'SALE',$4,now(),$5)`,
+         VALUES ($1,$2,$3,'SALE',$4,${SQL_NOW},$5)`,
         [existing.SaleCode, saleDate, paid, user, body.branchId]
       );
     }
     if (leftover > 0) {
       await client.query(
         `INSERT INTO "Payment" (code, paymentdate, paidamount, tablename, createuser, createdate, branchid)
-         VALUES ($1,$2,$3,'SALEDEBIT',$4,now(),$5)`,
+         VALUES ($1,$2,$3,'SALEDEBIT',$4,${SQL_NOW},$5)`,
         [existing.SaleCode, saleDate, leftover, user, body.branchId]
       );
     }

@@ -1,5 +1,6 @@
 const express = require("express");
 const pool = require("../db/pool");
+const { localNow } = require("./localTime");
 const { parsePagination } = require("./pagination");
 
 /**
@@ -70,7 +71,7 @@ function createCrudRouter(config) {
       const cols = [...columns];
       const values = columns.map((c) => (body[c] === undefined ? null : body[c]));
       if (auditColumns) {
-        const now = new Date().toISOString();
+        const now = localNow();
         cols.push(auditColumns.createUser, auditColumns.createDate, auditColumns.updateUser, auditColumns.updateDate);
         values.push(body.user || "web", now, body.user || "web", now);
       }
@@ -93,7 +94,7 @@ function createCrudRouter(config) {
       const values = columns.map((c) => (body[c] === undefined ? null : body[c]));
       if (auditColumns) {
         cols.push(auditColumns.updateUser, auditColumns.updateDate);
-        values.push(body.user || "web", new Date().toISOString());
+        values.push(body.user || "web", localNow());
       }
       const setClause = cols.map((c, i) => `"${c}" = $${i + 1}`).join(", ");
       values.push(req.params.id);

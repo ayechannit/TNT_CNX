@@ -10,6 +10,8 @@ import PurchaseDetailModal from "../components/PurchaseDetailModal";
 import RowActionsMenu from "../components/RowActionsMenu";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { EyeIcon, EditIcon, PrinterIcon, CheckCircleIcon, TrashIcon } from "../components/icons";
+import { todayStr } from "../lib/today";
+import { stockLabel } from "../lib/stockLabel";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -18,7 +20,7 @@ export default function PurchasePage() {
   const [branches, setBranches] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [branchId, setBranchId] = useState("");
-  const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [purchaseDate, setPurchaseDate] = useState(() => todayStr());
   const [supplierId, setSupplierId] = useState("");
   const [items, setItems] = useState([]);
   const [discount, setDiscount] = useState(0);
@@ -148,6 +150,7 @@ export default function PurchasePage() {
         purchase.items.map((d) => ({
           stockId: Number(d.StockCode),
           stockName: d.StockName,
+          stockCode: d.StockItemCode,
           qty: Number(d.Qty),
           price: Number(d.Price),
         }))
@@ -187,7 +190,7 @@ export default function PurchasePage() {
   const leftover = totalAmount - Number(paid || 0);
 
   function resetForm() {
-    setPurchaseDate(new Date().toISOString().slice(0, 10));
+    setPurchaseDate(todayStr());
     setSupplierId("");
     setItems([]);
     setDiscount(0);
@@ -286,7 +289,7 @@ export default function PurchasePage() {
         <tbody>
           {items.map((i) => (
             <tr key={i.stockId}>
-              <td>{i.stockName}</td>
+              <td>{stockLabel(i.stockCode, i.stockName)}</td>
               <td>
                 <input type="number" className="cart-qty" value={i.qty}
                   onChange={(e) => updateItem(i.stockId, "qty", e.target.value)} />

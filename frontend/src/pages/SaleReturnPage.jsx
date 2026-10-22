@@ -7,6 +7,7 @@ import SaleReturnDetailModal from "../components/SaleReturnDetailModal";
 import RowActionsMenu from "../components/RowActionsMenu";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { EyeIcon, TrashIcon } from "../components/icons";
+import { stockLabel } from "../lib/stockLabel";
 import "./StockPage.css";
 import "./UserRolePage.css";
 import "./SalePage.css";
@@ -71,6 +72,7 @@ export default function SaleReturnPage() {
           saleDtlId: d.SaleDtlID,
           stockId: Number(d.StockCode),
           stockName: d.StockName,
+          stockCode: d.StockItemCode,
           origQty: Number(d.Qty),
           qty: Number(d.Qty),
           price: Number(d.Price),
@@ -209,7 +211,7 @@ export default function SaleReturnPage() {
             <tbody>
               {returnItems.map((i) => (
                 <tr key={i.saleDtlId}>
-                  <td>{i.stockName}</td>
+                  <td>{stockLabel(i.stockCode, i.stockName)}</td>
                   <td className="num">{i.origQty}</td>
                   <td>
                     <input type="number" className="cart-qty" value={i.qty} max={i.origQty} min={0}
