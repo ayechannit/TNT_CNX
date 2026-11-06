@@ -750,8 +750,10 @@ const REPORTS = {
         { field: "StockCode", header: "Stock Code" },
         { field: "StockName", header: "Stock Name" },
         { field: "StockBalance", header: "Stock Balance", type: "int" },
+        { field: "AvgPurchasePrice", header: "Avg Purchase Price", type: "number" },
+        { field: "TotalValue", header: "Total", type: "number" },
       ],
-      totals: [],
+      totals: ["TotalValue"],
     },
     params: [{ name: "asOfDate", type: "date", required: true }, { name: "branchId", type: "branch", required: false }, { name: "stockCode", type: "text", required: false }],
     build(q) {
@@ -792,12 +794,24 @@ const REPORTS = {
                  AND ($2::int IS NULL OR a."BranchID" = $2::int)), 0)
              AS "CalculatedBalance"
            FROM "StockMaster" sm
+         ),
+         -- Weighted by qty, across all branches: stock that reached a branch by
+         -- transfer has no purchase row there, but it still cost what was paid.
+         purchase_cost AS (
+           SELECT pd."StockCode"::int AS "StockID",
+             SUM(pd."Amount") / NULLIF(SUM(pd."Qty"), 0) AS "AvgPurchasePrice"
+           FROM "PurchaseDtl" pd JOIN "PurchaseHdr" ph ON pd."PurchaseHDRID" = ph."PurchaseID"
+           WHERE ph."PurchaseDate"::date <= $1::date
+           GROUP BY pd."StockCode"::int
          )
          SELECT $1::date AS "BalanceAsOfDate",
            COALESCE((SELECT branchname FROM "Branch" WHERE id = $2::int), 'All Branches') AS "Branch",
            sm."StockID", sm."StockCode", sm."StockName", sm."StockType", sm."Barcode", cat."CategoryName",
-           mov."CalculatedBalance" AS "StockBalance"
+           mov."CalculatedBalance" AS "StockBalance",
+           pc."AvgPurchasePrice",
+           mov."CalculatedBalance" * pc."AvgPurchasePrice" AS "TotalValue"
          FROM "StockMaster" sm JOIN movements mov ON sm."StockID" = mov."StockID"
+         LEFT JOIN purchase_cost pc ON sm."StockID" = pc."StockID"
          LEFT JOIN "CategoryMaster" cat ON sm."CategoryID" = cat."CategoryID"
          WHERE ($3::text IS NULL OR sm."StockCode" ILIKE '%' || $3 || '%' OR sm."StockName" ILIKE '%' || $3 || '%' OR sm."Barcode" = $3)
          ORDER BY sm."StockName" LIMIT ${ROW_LIMIT}`,
